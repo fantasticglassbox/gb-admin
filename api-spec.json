@@ -1,0 +1,4075 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Glassbox Core API",
+    "description": "This is the Glassbox Core API server for managing merchants, devices, advertisements, fee schemas, and revenue sharing.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Glassbox Team",
+      "email": "support@glassbox.com"
+    }
+  },
+  "host": "localhost:8000",
+  "basePath": "/v1",
+  "schemes": ["http"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Enter the token with the `Bearer ` prefix, e.g. \"Bearer abcde12345\""
+    }
+  },
+  "paths": {
+    "/public/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user",
+        "description": "Register a new user with username, password, role, and optional tid",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RegistrationRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "User registered successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/public/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User login",
+        "description": "Authenticate user with username and password",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AuthRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "schema": {
+              "$ref": "#/definitions/LoginResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/public/refresh-token": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Refresh access token",
+        "description": "Refresh an expired access token using a refresh token",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "refresh_token",
+            "in": "formData",
+            "type": "string",
+            "required": true,
+            "description": "Refresh token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token refreshed successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "access_token": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid refresh token",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/public/device/login": {
+      "post": {
+        "tags": ["Device Authentication"],
+        "summary": "Device login for mobile/platform apps",
+        "description": "Authenticate a device used by the Glassbox mobile/platform application. This endpoint is specifically used by tablet/display devices to authenticate with the platform, register device details, and obtain access tokens for displaying advertisements. The device must be pre-registered and assigned to a merchant.",
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LoginDevice"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device login successful",
+            "schema": {
+              "$ref": "#/definitions/LoginDeviceResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/device/status": {
+      "post": {
+        "tags": ["Device Management"],
+        "summary": "Report device status for mobile/platform apps",
+        "description": "Used by the Glassbox mobile/platform application to report device status and activity. This endpoint allows devices to send heartbeat signals and status updates to maintain active session tracking. The device must be authenticated and the merchant/device IDs are extracted from the JWT token.",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "Device status reported successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "success"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing token",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/fcm/device/token": {
+      "post": {
+        "tags": ["Push Notifications"],
+        "summary": "Register FCM token for mobile/platform apps",
+        "description": "Used by the Glassbox mobile/platform application to register Firebase Cloud Messaging (FCM) tokens for push notifications. This endpoint allows devices to register or update their FCM tokens so they can receive push notifications for new advertisements, system updates, and other important messages. The device must be authenticated and the merchant/device IDs are extracted from the JWT token.",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/DeviceTokenRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FCM token registered successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "example": "success"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid token format",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing token",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/user": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Create a new user",
+        "description": "Create a new user with username, password, role, and tid",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RegistrationRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "User created successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/user/list": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get list of users",
+        "description": "Retrieve a list of all users",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "List of users retrieved successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "users": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/User"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/merchants": {
+      "get": {
+        "tags": ["Merchants"],
+        "summary": "Get all merchants",
+        "description": "Retrieve a list of all merchants",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "List of merchants retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Merchant"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Merchants"],
+        "summary": "Create a new merchant",
+        "description": "Create a new merchant",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "merchant",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Merchant"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Merchant created successfully",
+            "schema": {
+              "$ref": "#/definitions/Merchant"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/merchants/{id}": {
+      "get": {
+        "tags": ["Merchants"],
+        "summary": "Get merchant by ID",
+        "description": "Retrieve a merchant by their ID",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Merchant ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merchant retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/Merchant"
+            }
+          },
+          "404": {
+            "description": "Merchant not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Merchants"],
+        "summary": "Update merchant",
+        "description": "Update an existing merchant",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Merchant ID"
+          },
+          {
+            "name": "merchant",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Merchant"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merchant updated successfully",
+            "schema": {
+              "$ref": "#/definitions/Merchant"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Merchant not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/merchants/device/asign": {
+      "put": {
+        "tags": ["Merchants"],
+        "summary": "Assign device to merchant",
+        "description": "Assign a device to a specific merchant",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "Device assigned successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Device assigned successfully"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/devices": {
+      "get": {
+        "tags": ["Devices"],
+        "summary": "Get all devices",
+        "description": "Retrieve a list of all devices",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "List of devices retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Device"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Devices"],
+        "summary": "Create a new device",
+        "description": "Create a new device",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "device",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Device"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Device created successfully",
+            "schema": {
+              "$ref": "#/definitions/Device"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/devices/{id}": {
+      "get": {
+        "tags": ["Devices"],
+        "summary": "Get device by ID",
+        "description": "Retrieve a device by their ID",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Device ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/Device"
+            }
+          },
+          "404": {
+            "description": "Device not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Devices"],
+        "summary": "Update device",
+        "description": "Update an existing device",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Device ID"
+          },
+          {
+            "name": "device",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Device"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device updated successfully",
+            "schema": {
+              "$ref": "#/definitions/Device"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Device not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Devices"],
+        "summary": "Delete device",
+        "description": "Delete a device by ID",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Device ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Device deleted successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Device deleted successfully"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Device not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/file": {
+      "post": {
+        "tags": ["File Management"],
+        "summary": "Upload file",
+        "description": "Upload a file to S3 storage (Digital Ocean Spaces). The file will be temporarily saved locally, uploaded to S3, and then removed from local storage.",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["multipart/form-data"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "file",
+            "in": "formData",
+            "type": "file",
+            "required": true,
+            "description": "The file to upload (any file type supported)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File uploaded successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "File uploaded successfully"
+                },
+                "url": {
+                  "type": "string",
+                  "description": "The URL of the uploaded file in S3",
+                  "example": "https://your-bucket.s3.amazonaws.com/path/to/file.jpg"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - No file provided",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error - Failed to save or upload file",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/assets": {
+      "get": {
+        "tags": ["Asset Management"],
+        "summary": "Get all assets",
+        "description": "Retrieve a list of all assets (media files, images, etc.)",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "List of assets retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Asset"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Asset Management"],
+        "summary": "Create a new asset",
+        "description": "Create a new asset record (typically after uploading a file)",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "asset",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Asset"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Asset created successfully",
+            "schema": {
+              "$ref": "#/definitions/Asset"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/assets/{id}": {
+      "get": {
+        "tags": ["Asset Management"],
+        "summary": "Get asset by ID",
+        "description": "Retrieve a specific asset by its ID",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Asset ID (UUID)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Asset retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/Asset"
+            }
+          },
+          "404": {
+            "description": "Asset not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Asset Management"],
+        "summary": "Update asset",
+        "description": "Update an existing asset",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Asset ID (UUID)"
+          },
+          {
+            "name": "asset",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Asset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Asset updated successfully",
+            "schema": {
+              "$ref": "#/definitions/Asset"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Asset not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/advertisements/list": {
+      "get": {
+        "tags": ["Advertisements"],
+        "summary": "Get all advertisements",
+        "description": "Retrieve a list of all advertisements (filtered by partner if authenticated as partner)",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "List of advertisements retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Advertisement"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/advertisements/{id}": {
+      "get": {
+        "tags": ["Advertisements"],
+        "summary": "Get advertisement by ID",
+        "description": "Retrieve a specific advertisement by its ID",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Advertisement ID (UUID)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Advertisement retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/Advertisement"
+            }
+          },
+          "404": {
+            "description": "Advertisement not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Advertisements"],
+        "summary": "Update advertisement",
+        "description": "Update an existing advertisement",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Advertisement ID (UUID)"
+          },
+          {
+            "name": "advertisement",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Advertisement"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Advertisement updated successfully",
+            "schema": {
+              "$ref": "#/definitions/Advertisement"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Advertisement not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Advertisements"],
+        "summary": "Delete advertisement",
+        "description": "Soft delete an advertisement and remove all its merchant assignments",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Advertisement ID (UUID)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Advertisement and its assignments deleted successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Advertisement and its assignments deleted successfully"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Advertisement not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/advertisements/create": {
+      "post": {
+        "tags": ["Advertisements"],
+        "summary": "Create new advertisement",
+        "description": "Create a new advertisement (partner_id and created_by are set automatically from JWT)",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "advertisement",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/Advertisement"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Advertisement created successfully",
+            "schema": {
+              "$ref": "#/definitions/Advertisement"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/advertisements/merchant": {
+      "put": {
+        "tags": ["Advertisements"],
+        "summary": "Assign advertisement to merchants",
+        "description": "Assign an advertisement to one or more merchants",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "assignment",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AssignAds"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Advertisement assigned successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "integer",
+                  "example": 200
+                },
+                "message": {
+                  "type": "string",
+                  "example": "Advertisement assigned successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/advertisements/{id}/unpublish": {
+      "put": {
+        "tags": ["Advertisements"],
+        "summary": "Unpublish advertisement",
+        "description": "Unpublish an advertisement and delete all its merchant assignments",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Advertisement ID (UUID)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Advertisement unpublished successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Advertisement unpublished successfully and assignments deleted"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Advertisement not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/merchants/ads": {
+      "get": {
+        "tags": ["Advertisements"],
+        "summary": "Get advertisements for merchant",
+        "description": "Retrieve all advertisements assigned to the authenticated merchant",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "List of merchant advertisements retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Advertisement"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/advertisements/{id}/complete": {
+      "post": {
+        "tags": ["Advertisements"],
+        "summary": "Acknowledge advertisement completion",
+        "description": "Log advertisement completion/view and optionally process fee transaction",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Advertisement ID (UUID)"
+          },
+          {
+            "name": "completion",
+            "in": "body",
+            "required": false,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "display_duration": {
+                  "type": "integer",
+                  "description": "Duration the advertisement was displayed (seconds)",
+                  "example": 30,
+                  "default": 30
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Advertisement completion acknowledged",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Advertisement completion acknowledged"
+                },
+                "log_id": {
+                  "type": "string",
+                  "description": "Advertisement log ID",
+                  "example": "log-123"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/advertisements/active": {
+      "get": {
+        "tags": ["Advertisements"],
+        "summary": "Get active advertisements",
+        "description": "Retrieve all active advertisements (same as /advertisements/list)",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "List of active advertisements retrieved successfully",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Advertisement"
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/fee-schemas": {
+      "get": {
+        "tags": ["Fee Management"],
+        "summary": "Get fee schemas",
+        "description": "Retrieve all fee schemas with pagination",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "type": "integer",
+            "description": "Page number (default: 1)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer",
+            "description": "Items per page (default: 20)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fee schemas retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeSchemaListResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Fee Management"],
+        "summary": "Create fee schema",
+        "description": "Create a new fee schema for revenue sharing configuration",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "feeSchema",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateFeeSchemaRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Fee schema created successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeSchemaResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/fee-schemas/{id}": {
+      "get": {
+        "tags": ["Fee Management"],
+        "summary": "Get fee schema by ID",
+        "description": "Retrieve a specific fee schema by its ID",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Fee schema ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fee schema retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeSchemaResponse"
+            }
+          },
+          "404": {
+            "description": "Fee schema not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Fee Management"],
+        "summary": "Update fee schema",
+        "description": "Update an existing fee schema",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Fee schema ID"
+          },
+          {
+            "name": "feeSchema",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateFeeSchemaRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fee schema updated successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeSchemaResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Fee schema not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/fee-schemas/{id}/activate": {
+      "put": {
+        "tags": ["Fee Management"],
+        "summary": "Activate fee schema",
+        "description": "Activate a fee schema to make it available for use",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Fee schema ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fee schema activated successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Fee schema not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/fee-schemas/{id}/deactivate": {
+      "put": {
+        "tags": ["Fee Management"],
+        "summary": "Deactivate fee schema",
+        "description": "Deactivate a fee schema to prevent its use",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Fee schema ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fee schema deactivated successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Fee schema not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/fee-transactions": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Get fee transactions",
+        "description": "Retrieve fee transactions with filtering and pagination",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "type": "integer",
+            "description": "Page number (default: 1)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer",
+            "description": "Items per page (default: 20)"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "type": "string",
+            "enum": ["pending", "processed", "settled", "failed", "cancelled"],
+            "description": "Filter by transaction status"
+          },
+          {
+            "name": "partner_id",
+            "in": "query",
+            "type": "string",
+            "description": "Filter by partner ID"
+          },
+          {
+            "name": "merchant_id",
+            "in": "query",
+            "type": "string",
+            "description": "Filter by merchant ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fee transactions retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeTransactionListResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+            }
+          }
+        }
+      },
+    "/fee-transactions/{id}": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Get fee transaction by ID",
+        "description": "Retrieve a specific fee transaction by its ID",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Fee transaction ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fee transaction retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeTransactionResponse"
+            }
+          },
+          "404": {
+            "description": "Fee transaction not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/fee-transactions/{id}/process": {
+      "put": {
+        "tags": ["Transactions"],
+        "summary": "Process fee transaction",
+        "description": "Process a pending fee transaction (Admin only)",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Fee transaction ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction processed successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transaction not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Processing failed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/fee-transactions/process-view": {
+      "post": {
+        "tags": ["Transactions"],
+        "summary": "Process advertisement view",
+        "description": "Process a fee transaction for an advertisement view",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "request",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ProcessAdvertisementViewRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Advertisement view processed successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeTransactionResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Processing failed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/settlements": {
+      "get": {
+        "tags": ["Settlements"],
+        "summary": "Get settlements",
+        "description": "Retrieve settlements with filtering and pagination",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "type": "integer",
+            "description": "Page number (default: 1)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "type": "integer",
+            "description": "Items per page (default: 20)"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "type": "string",
+            "enum": ["pending", "processing", "completed", "failed", "cancelled"],
+            "description": "Filter by settlement status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settlements retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeSettlementListResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Settlements"],
+        "summary": "Create settlement batch",
+        "description": "Create a new settlement batch for processing payouts (Admin only)",
+        "security": [{"BearerAuth": []}],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "settlement",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateSettlementRequest"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Settlement batch created successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeSettlementResponse"
+            }
+          },
+          "400": {
+            "description": "Bad request - validation error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Settlement creation failed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/settlements/{id}": {
+      "get": {
+        "tags": ["Settlements"],
+        "summary": "Get settlement by ID",
+        "description": "Retrieve a specific settlement by its ID",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Settlement ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settlement retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/FeeSettlementResponse"
+            }
+          },
+          "404": {
+            "description": "Settlement not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/settlements/{batchId}/process": {
+      "put": {
+        "tags": ["Settlements"],
+        "summary": "Process settlement batch",
+        "description": "Process a settlement batch for payout (Admin only)",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Settlement batch ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settlement processed successfully",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Settlement not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Settlement processing failed",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/revenue/partner": {
+      "get": {
+        "tags": ["Revenue Reports"],
+        "summary": "Get partner revenue report",
+        "description": "Retrieve revenue report for the authenticated partner",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "Start date (YYYY-MM-DD, default: 30 days ago)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "End date (YYYY-MM-DD, default: today)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Partner revenue report retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/RevenueReport"
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid date format",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/revenue/partner/{partnerId}": {
+      "get": {
+        "tags": ["Revenue Reports"],
+        "summary": "Get partner revenue report by ID",
+        "description": "Retrieve revenue report for a specific partner (Admin only)",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "partnerId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Partner ID"
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "Start date (YYYY-MM-DD)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "End date (YYYY-MM-DD)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Partner revenue report retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/RevenueReport"
+            }
+          },
+          "404": {
+            "description": "Partner not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/revenue/merchant": {
+      "get": {
+        "tags": ["Revenue Reports"],
+        "summary": "Get merchant revenue report",
+        "description": "Retrieve revenue report for the authenticated merchant",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "Start date (YYYY-MM-DD, default: 30 days ago)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "End date (YYYY-MM-DD, default: today)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merchant revenue report retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/RevenueReport"
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid date format",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+            }
+          }
+        }
+      },
+    "/revenue/merchant/{merchantId}": {
+      "get": {
+        "tags": ["Revenue Reports"],
+        "summary": "Get merchant revenue report by ID",
+        "description": "Retrieve revenue report for a specific merchant (Admin only)",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "merchantId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "Merchant ID"
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "Start date (YYYY-MM-DD)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "End date (YYYY-MM-DD)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merchant revenue report retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/RevenueReport"
+            }
+          },
+          "404": {
+            "description": "Merchant not found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/revenue/glassbox": {
+      "get": {
+        "tags": ["Revenue Reports"],
+        "summary": "Get Glassbox platform revenue report",
+        "description": "Retrieve revenue report for the Glassbox platform (Admin only)",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "Start date (YYYY-MM-DD, default: 30 days ago)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "End date (YYYY-MM-DD, default: today)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Glassbox revenue report retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/RevenueReport"
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid date format",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/revenue/stats": {
+      "get": {
+        "tags": ["Revenue Reports"],
+        "summary": "Get transaction statistics",
+        "description": "Retrieve comprehensive transaction statistics",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "Start date (YYYY-MM-DD, default: 30 days ago)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "type": "string",
+            "format": "date",
+            "description": "End date (YYYY-MM-DD, default: today)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction statistics retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/TransactionStats"
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid date format",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/dashboard/admin": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get admin dashboard data",
+        "description": "Retrieve comprehensive dashboard data for admin users with platform-wide statistics",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "type": "integer",
+            "description": "Number of days to look back (default: 30)",
+            "example": 30
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin dashboard data retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/AdminDashboardResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden - Admin access required",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/dashboard/partner": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get partner dashboard data",
+        "description": "Retrieve dashboard data for the authenticated partner with revenue and performance metrics",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "type": "integer",
+            "description": "Number of days to look back (default: 30)",
+            "example": 30
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Partner dashboard data retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/PartnerDashboardResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden - Partner access required",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/dashboard/merchant": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get merchant dashboard data",
+        "description": "Retrieve dashboard data for the authenticated merchant with revenue sharing and device performance",
+        "security": [{"BearerAuth": []}],
+        "produces": ["application/json"],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "type": "integer",
+            "description": "Number of days to look back (default: 30)",
+            "example": 30
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Merchant dashboard data retrieved successfully",
+            "schema": {
+              "$ref": "#/definitions/MerchantDashboardResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden - Merchant access required",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "AuthRequest": {
+      "type": "object",
+      "required": ["username", "password"],
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "User's username"
+        },
+        "password": {
+          "type": "string",
+          "description": "User's password"
+        }
+      }
+    },
+    "Asset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Asset ID (UUID)",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "name": {
+          "type": "string",
+          "description": "Asset name/title",
+          "example": "Advertisement Banner 001"
+        },
+        "uri": {
+          "type": "string",
+          "description": "Asset URI/URL (S3 bucket URL)",
+          "example": "https://your-bucket.s3.amazonaws.com/assets/banner-001.jpg"
+        },
+        "created_by": {
+          "type": "string",
+          "description": "User ID who created this asset",
+          "example": "user-123"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "deleted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Deletion timestamp (soft delete)",
+          "nullable": true
+        }
+      }
+    },
+    "Advertisement": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Advertisement ID (UUID)",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "partner_id": {
+          "type": "string",
+          "description": "Partner ID who owns this advertisement",
+          "example": "partner-123"
+        },
+        "content": {
+          "type": "string",
+          "description": "Advertisement content/media URL",
+          "example": "https://bucket.s3.amazonaws.com/ads/banner-001.jpg"
+        },
+        "type": {
+          "type": "string",
+          "description": "Advertisement type (image, video, etc.)",
+          "example": "image"
+        },
+        "created_by": {
+          "type": "string",
+          "description": "User ID who created this advertisement",
+          "example": "user-123"
+        },
+        "duration": {
+          "type": "integer",
+          "description": "Display duration in seconds",
+          "example": 60,
+          "default": 60
+        },
+        "description": {
+          "type": "string",
+          "description": "Advertisement description",
+          "example": "Premium coffee promotion for winter season"
+        },
+        "published_time_start": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Start time for advertisement publication",
+          "example": "2024-01-01T00:00:00Z"
+        },
+        "published_time_end": {
+          "type": "string",
+          "format": "date-time",
+          "description": "End time for advertisement publication",
+          "example": "2024-12-31T23:59:59Z"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "deleted_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Deletion timestamp (soft delete)",
+          "nullable": true
+        }
+      }
+    },
+    "AssignAds": {
+      "type": "object",
+      "required": ["advertisement_id", "merchant_id"],
+      "properties": {
+        "advertisement_id": {
+          "type": "string",
+          "description": "Advertisement ID to assign",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "merchant_id": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of merchant IDs to assign the advertisement to",
+          "example": ["merchant-123", "merchant-456"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Assignment status (optional)",
+          "example": "active"
+        }
+      }
+    },
+    "DeviceTokenRequest": {
+      "type": "object",
+      "required": ["token"],
+      "properties": {
+        "token": {
+          "type": "string",
+          "description": "Firebase Cloud Messaging (FCM) token for push notifications",
+          "example": "fGHJ123abc456def789ghi012jkl345mno678pqr901stu234vwx567yz890..."
+        }
+      }
+    },
+    "RegistrationRequest": {
+      "type": "object",
+      "required": ["username", "password", "role"],
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "User's username"
+        },
+        "password": {
+          "type": "string",
+          "description": "User's password"
+        },
+        "role": {
+          "type": "string",
+          "description": "User's role",
+          "enum": ["partner", "merchant"]
+        },
+        "tid": {
+          "type": "string",
+          "description": "Optional tenant ID"
+        }
+      }
+    },
+    "LoginDevice": {
+      "type": "object",
+      "required": ["device_id", "device_detail", "operating_system", "device_name", "fcm_token"],
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "description": "Device serial number/identifier",
+          "example": "DEVICE-12345"
+        },
+        "device_detail": {
+          "type": "string",
+          "description": "Device details/specifications",
+          "example": "Samsung Galaxy Tab A 10.1"
+        },
+        "operating_system": {
+          "type": "string",
+          "description": "Device operating system",
+          "example": "Android 11"
+        },
+        "device_name": {
+          "type": "string",
+          "description": "Manufacturer and model name",
+          "example": "Samsung Galaxy Tab"
+        },
+        "fcm_token": {
+          "type": "string",
+          "description": "Firebase Cloud Messaging token for push notifications",
+          "example": "fGHJ123abc456def..."
+        }
+      }
+    },
+    "LoginResponse": {
+      "type": "object",
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "description": "JWT access token",
+          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        },
+        "refresh_token": {
+          "type": "string",
+          "description": "JWT refresh token",
+          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        },
+        "account": {
+          "$ref": "#/definitions/Account"
+        }
+      }
+    },
+    "LoginDeviceResponse": {
+      "type": "object",
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "description": "JWT access token",
+          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        },
+        "refresh_token": {
+          "type": "string",
+          "description": "JWT refresh token",
+          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        },
+        "account_info": {
+          "$ref": "#/definitions/AccountInfo"
+        }
+      }
+    },
+    "Account": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "User ID",
+          "example": "user-123"
+        },
+        "name": {
+          "type": "string",
+          "description": "Username",
+          "example": "admin"
+        },
+        "roles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "User roles",
+          "example": ["admin", "merchant"]
+        }
+      }
+    },
+    "AccountInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Merchant ID",
+          "example": "merchant-123"
+        },
+        "name": {
+          "type": "string",
+          "description": "Merchant name",
+          "example": "Starbucks Downtown"
+        },
+        "tag_line": {
+          "type": "string",
+          "description": "Merchant tagline",
+          "example": "Premium Coffee Experience"
+        },
+        "logo": {
+          "type": "string",
+          "description": "Merchant logo URL",
+          "example": "https://bucket.s3.amazonaws.com/logos/starbucks.png"
+        },
+        "place_holder_image": {
+          "type": "string",
+          "description": "Placeholder image URL",
+          "example": "https://bucket.s3.amazonaws.com/placeholders/default.png"
+        }
+      }
+    },
+    "User": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "User ID"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username"
+        },
+        "role": {
+          "type": "string",
+          "description": "User role"
+        },
+        "tid": {
+          "type": "string",
+          "description": "Tenant ID"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      }
+    },
+    "Merchant": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Merchant ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Merchant name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Merchant description"
+        },
+        "address": {
+          "type": "string",
+          "description": "Merchant address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Merchant phone number"
+        },
+        "email": {
+          "type": "string",
+          "description": "Merchant email"
+        },
+        "status": {
+          "type": "string",
+          "description": "Merchant status"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      }
+    },
+    "Device": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Device ID"
+        },
+        "device_id": {
+          "type": "string",
+          "description": "Device identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Device name"
+        },
+        "type": {
+          "type": "string",
+          "description": "Device type"
+        },
+        "status": {
+          "type": "string",
+          "description": "Device status"
+        },
+        "merchant_id": {
+          "type": "integer",
+          "description": "Associated merchant ID"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string",
+          "description": "Error message"
+        }
+      }
+    },
+    "CreateFeeSchemaRequest": {
+      "type": "object",
+      "required": ["name", "fee_type", "pricing_model", "base_rate", "currency", "partner_share_bps", "merchant_share_bps", "glassbox_share_bps", "valid_from"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Fee schema name",
+          "example": "Standard Video Ads"
+        },
+        "description": {
+          "type": "string",
+          "description": "Fee schema description",
+          "example": "Per-view pricing for video advertisements"
+        },
+        "fee_type": {
+          "type": "string",
+          "enum": ["per_view", "per_duration", "flat", "revenue_share"],
+          "description": "Type of fee calculation",
+          "example": "per_view"
+        },
+        "pricing_model": {
+          "type": "string",
+          "enum": ["fixed", "tiered", "dynamic", "auction"],
+          "description": "Pricing model",
+          "example": "fixed"
+        },
+        "base_rate": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Base rate in smallest currency unit (cents)",
+          "example": 100
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code",
+          "example": "USD"
+        },
+        "partner_share_bps": {
+          "type": "integer",
+          "description": "Partner share in basis points (10000 = 100%)",
+          "example": 6000
+        },
+        "merchant_share_bps": {
+          "type": "integer",
+          "description": "Merchant share in basis points (10000 = 100%)",
+          "example": 3000
+        },
+        "glassbox_share_bps": {
+          "type": "integer",
+          "description": "Glassbox share in basis points (10000 = 100%)",
+          "example": 1000
+        },
+        "min_display_duration": {
+          "type": "integer",
+          "description": "Minimum display duration in seconds",
+          "example": 15
+        },
+        "min_views_required": {
+          "type": "integer",
+          "description": "Minimum views required to charge",
+          "example": 1
+        },
+        "peak_hour_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Peak hour pricing multiplier",
+          "example": 1.5
+        },
+        "weekend_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Weekend pricing multiplier",
+          "example": 1.2
+        },
+        "location_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Location-based pricing multiplier",
+          "example": 1.0
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Schema validity start date",
+          "example": "2024-01-01T00:00:00Z"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Schema validity end date (optional)",
+          "example": "2024-12-31T23:59:59Z"
+        }
+      }
+    },
+    "UpdateFeeSchemaRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Fee schema name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Fee schema description"
+        },
+        "base_rate": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Base rate in smallest currency unit (cents)"
+        },
+        "partner_share_bps": {
+          "type": "integer",
+          "description": "Partner share in basis points (10000 = 100%)"
+        },
+        "merchant_share_bps": {
+          "type": "integer",
+          "description": "Merchant share in basis points (10000 = 100%)"
+        },
+        "glassbox_share_bps": {
+          "type": "integer",
+          "description": "Glassbox share in basis points (10000 = 100%)"
+        },
+        "min_display_duration": {
+          "type": "integer",
+          "description": "Minimum display duration in seconds"
+        },
+        "peak_hour_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Peak hour pricing multiplier"
+        },
+        "weekend_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Weekend pricing multiplier"
+        },
+        "location_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Location-based pricing multiplier"
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Schema validity start date"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Schema validity end date"
+        }
+      }
+    },
+    "FeeSchemaResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Fee schema ID",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "name": {
+          "type": "string",
+          "description": "Fee schema name",
+          "example": "Standard Video Ads"
+        },
+        "description": {
+          "type": "string",
+          "description": "Fee schema description",
+          "example": "Per-view pricing for video advertisements"
+        },
+        "fee_type": {
+          "type": "string",
+          "enum": ["per_view", "per_duration", "flat", "revenue_share"],
+          "description": "Type of fee calculation",
+          "example": "per_view"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "inactive", "archived"],
+          "description": "Fee schema status",
+          "example": "active"
+        },
+        "pricing_model": {
+          "type": "string",
+          "enum": ["fixed", "tiered", "dynamic", "auction"],
+          "description": "Pricing model",
+          "example": "fixed"
+        },
+        "base_rate": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Base rate in smallest currency unit (cents)",
+          "example": 100
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code",
+          "example": "USD"
+        },
+        "partner_share_bps": {
+          "type": "integer",
+          "description": "Partner share in basis points (10000 = 100%)",
+          "example": 6000
+        },
+        "merchant_share_bps": {
+          "type": "integer",
+          "description": "Merchant share in basis points (10000 = 100%)",
+          "example": 3000
+        },
+        "glassbox_share_bps": {
+          "type": "integer",
+          "description": "Glassbox share in basis points (10000 = 100%)",
+          "example": 1000
+        },
+        "min_display_duration": {
+          "type": "integer",
+          "description": "Minimum display duration in seconds",
+          "example": 15
+        },
+        "min_views_required": {
+          "type": "integer",
+          "description": "Minimum views required to charge",
+          "example": 1
+        },
+        "peak_hour_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Peak hour pricing multiplier",
+          "example": 1.5
+        },
+        "weekend_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Weekend pricing multiplier",
+          "example": 1.2
+        },
+        "location_multiplier": {
+          "type": "number",
+          "format": "float",
+          "description": "Location-based pricing multiplier",
+          "example": 1.0
+        },
+        "valid_from": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Schema validity start date",
+          "example": "2024-01-01T00:00:00Z"
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Schema validity end date",
+          "example": "2024-12-31T23:59:59Z"
+        },
+        "partner_id": {
+          "type": "string",
+          "description": "Partner ID",
+          "example": "550e8400-e29b-41d4-a716-446655440001"
+        },
+        "created_by": {
+          "type": "string",
+          "description": "Created by user ID",
+          "example": "550e8400-e29b-41d4-a716-446655440002"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp",
+          "example": "2024-01-01T10:00:00Z"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp",
+          "example": "2024-01-01T10:00:00Z"
+        }
+      }
+    },
+    "FeeSchemaListResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FeeSchemaResponse"
+          }
+        },
+        "pagination": {
+          "type": "object",
+          "properties": {
+            "page": {
+          "type": "integer",
+              "example": 1
+            },
+            "limit": {
+              "type": "integer",
+              "example": 20
+            },
+            "total": {
+              "type": "integer",
+              "example": 100
+            }
+          }
+        }
+      }
+    },
+    "ProcessAdvertisementViewRequest": {
+      "type": "object",
+      "required": ["advertisement_log_id", "display_duration"],
+      "properties": {
+        "advertisement_log_id": {
+          "type": "string",
+          "description": "Advertisement log ID",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "display_duration": {
+          "type": "integer",
+          "description": "Display duration in seconds",
+          "example": 30
+        }
+      }
+    },
+    "FeeTransactionResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Transaction ID",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "advertisement_log_id": {
+          "type": "string",
+          "description": "Advertisement log ID",
+          "example": "550e8400-e29b-41d4-a716-446655440001"
+        },
+        "fee_schema_id": {
+          "type": "string",
+          "description": "Fee schema ID",
+          "example": "550e8400-e29b-41d4-a716-446655440002"
+        },
+        "advertisement_id": {
+          "type": "string",
+          "description": "Advertisement ID",
+          "example": "550e8400-e29b-41d4-a716-446655440003"
+        },
+        "partner_id": {
+          "type": "string",
+          "description": "Partner ID",
+          "example": "550e8400-e29b-41d4-a716-446655440004"
+        },
+        "merchant_id": {
+          "type": "string",
+          "description": "Merchant ID",
+          "example": "550e8400-e29b-41d4-a716-446655440005"
+        },
+        "transaction_type": {
+          "type": "string",
+          "enum": ["charge", "refund", "bonus", "adjustment"],
+          "description": "Transaction type",
+          "example": "charge"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "processed", "settled", "failed", "cancelled", "disputed"],
+          "description": "Transaction status",
+          "example": "processed"
+        },
+        "base_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Base amount in smallest currency unit (cents)",
+          "example": 100
+        },
+        "partner_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Partner amount in smallest currency unit (cents)",
+          "example": 60
+        },
+        "merchant_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Merchant amount in smallest currency unit (cents)",
+          "example": 30
+        },
+        "glassbox_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Glassbox amount in smallest currency unit (cents)",
+          "example": 10
+        },
+        "total_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total amount in smallest currency unit (cents)",
+          "example": 100
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code",
+          "example": "USD"
+        },
+        "view_count": {
+          "type": "integer",
+          "description": "Number of views",
+          "example": 1
+        },
+        "display_duration": {
+          "type": "integer",
+          "description": "Display duration in seconds",
+          "example": 30
+        },
+        "view_quality_score": {
+          "type": "number",
+          "format": "float",
+          "description": "View quality score (0.0 to 1.0)",
+          "example": 1.0
+        },
+        "location": {
+          "type": "string",
+          "description": "Display location",
+          "example": "40.7128,-74.0060"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "Timezone",
+          "example": "UTC"
+        },
+        "displayed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Display timestamp",
+          "example": "2024-01-01T12:00:00Z"
+        },
+        "settlement_date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Settlement date",
+          "example": "2024-01-07T00:00:00Z"
+        },
+        "settlement_batch_id": {
+          "type": "string",
+          "description": "Settlement batch ID",
+          "example": "550e8400-e29b-41d4-a716-446655440006"
+        },
+        "processed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Processing timestamp",
+          "example": "2024-01-01T12:01:00Z"
+        },
+        "processed_by": {
+          "type": "string",
+          "description": "Processed by user ID",
+          "example": "550e8400-e29b-41d4-a716-446655440007"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Transaction notes",
+          "example": "Automatic processing"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp",
+          "example": "2024-01-01T12:00:00Z"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp",
+          "example": "2024-01-01T12:01:00Z"
+        }
+      }
+    },
+    "FeeTransactionListResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FeeTransactionResponse"
+          }
+        },
+        "pagination": {
+          "type": "object",
+          "properties": {
+            "page": {
+              "type": "integer",
+              "example": 1
+            },
+            "limit": {
+              "type": "integer",
+              "example": 20
+            },
+            "total": {
+              "type": "integer",
+              "example": 500
+            }
+          }
+        }
+      }
+    },
+    "CreateSettlementRequest": {
+      "type": "object",
+      "required": ["settlement_type", "period_start", "period_end"],
+      "properties": {
+        "settlement_type": {
+          "type": "string",
+          "enum": ["daily", "weekly", "monthly", "manual"],
+          "description": "Settlement type",
+          "example": "weekly"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Settlement period start",
+          "example": "2024-01-01T00:00:00Z"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Settlement period end",
+          "example": "2024-01-07T23:59:59Z"
+        }
+      }
+    },
+    "FeeSettlementResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Settlement ID",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "batch_id": {
+          "type": "string",
+          "description": "Settlement batch ID",
+          "example": "550e8400-e29b-41d4-a716-446655440001"
+        },
+        "settlement_type": {
+          "type": "string",
+          "enum": ["daily", "weekly", "monthly", "manual"],
+          "description": "Settlement type",
+          "example": "weekly"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "processing", "completed", "failed", "cancelled"],
+          "description": "Settlement status",
+          "example": "completed"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Settlement period start",
+          "example": "2024-01-01T00:00:00Z"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Settlement period end",
+          "example": "2024-01-07T23:59:59Z"
+        },
+        "total_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total settlement amount in smallest currency unit (cents)",
+          "example": 100000
+        },
+        "partner_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Partner amount in smallest currency unit (cents)",
+          "example": 60000
+        },
+        "merchant_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Merchant amount in smallest currency unit (cents)",
+          "example": 30000
+        },
+        "glassbox_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Glassbox amount in smallest currency unit (cents)",
+          "example": 10000
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code",
+          "example": "USD"
+        },
+        "transaction_count": {
+          "type": "integer",
+          "description": "Number of transactions in settlement",
+          "example": 1000
+        },
+        "partner_count": {
+          "type": "integer",
+          "description": "Number of unique partners",
+          "example": 5
+        },
+        "merchant_count": {
+          "type": "integer",
+          "description": "Number of unique merchants",
+          "example": 50
+        },
+        "processed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Processing timestamp",
+          "example": "2024-01-08T00:00:00Z"
+        },
+        "processed_by": {
+          "type": "string",
+          "description": "Processed by user ID",
+          "example": "550e8400-e29b-41d4-a716-446655440002"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Completion timestamp",
+          "example": "2024-01-08T01:00:00Z"
+        },
+        "external_batch_id": {
+          "type": "string",
+          "description": "External payment provider batch ID",
+          "example": "STRIPE_BATCH_001"
+        },
+        "payment_provider": {
+          "type": "string",
+          "description": "Payment provider",
+          "example": "stripe"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Settlement notes",
+          "example": "Weekly settlement for Jan 1-7, 2024"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp",
+          "example": "2024-01-08T00:00:00Z"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp",
+          "example": "2024-01-08T01:00:00Z"
+        }
+      }
+    },
+    "FeeSettlementListResponse": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FeeSettlementResponse"
+          }
+        },
+        "pagination": {
+          "type": "object",
+          "properties": {
+            "page": {
+              "type": "integer",
+              "example": 1
+            },
+            "limit": {
+              "type": "integer",
+              "example": 20
+            },
+            "total": {
+              "type": "integer",
+              "example": 50
+            }
+          }
+        }
+      }
+    },
+    "RevenueReport": {
+      "type": "object",
+      "properties": {
+        "entity_type": {
+          "type": "string",
+          "enum": ["partner", "merchant", "glassbox"],
+          "description": "Entity type",
+          "example": "partner"
+        },
+        "transaction_count": {
+          "type": "integer",
+          "description": "Number of transactions",
+          "example": 1250
+        },
+        "total_views": {
+          "type": "integer",
+          "description": "Total advertisement views",
+          "example": 15000
+        },
+        "total_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total revenue in smallest currency unit (cents)",
+          "example": 125000
+        },
+        "total_display_duration": {
+          "type": "integer",
+          "description": "Total display duration in seconds",
+          "example": 450000
+        },
+        "average_revenue_per_view": {
+          "type": "number",
+          "format": "float",
+          "description": "Average revenue per view in smallest currency unit (cents)",
+          "example": 8.33
+        },
+        "average_display_duration": {
+          "type": "number",
+          "format": "float",
+          "description": "Average display duration in seconds",
+          "example": 30.0
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code",
+          "example": "USD"
+        },
+        "pending_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Pending amount in smallest currency unit (cents)",
+          "example": 5000
+        },
+        "processed_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Processed amount in smallest currency unit (cents)",
+          "example": 80000
+        },
+        "settled_amount": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Settled amount in smallest currency unit (cents)",
+          "example": 40000
+        }
+      }
+    },
+    "TransactionStats": {
+      "type": "object",
+      "properties": {
+        "total_transactions": {
+          "type": "integer",
+          "description": "Total number of transactions",
+          "example": 5000
+        },
+        "total_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total revenue in smallest currency unit (cents)",
+          "example": 500000
+        },
+        "total_partner_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total partner revenue in smallest currency unit (cents)",
+          "example": 300000
+        },
+        "total_merchant_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total merchant revenue in smallest currency unit (cents)",
+          "example": 150000
+        },
+        "total_glassbox_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total Glassbox revenue in smallest currency unit (cents)",
+          "example": 50000
+        },
+        "total_views": {
+          "type": "integer",
+          "description": "Total advertisement views",
+          "example": 50000
+        },
+        "avg_display_duration": {
+          "type": "number",
+          "format": "float",
+          "description": "Average display duration in seconds",
+          "example": 28.5
+        },
+        "avg_quality_score": {
+          "type": "number",
+          "format": "float",
+          "description": "Average view quality score",
+          "example": 0.95
+        }
+      }
+    },
+    "AdminDashboardResponse": {
+      "type": "object",
+      "properties": {
+        "total_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total platform revenue in smallest currency unit (cents)",
+          "example": 1000000
+        },
+        "total_transactions": {
+          "type": "integer",
+          "description": "Total number of transactions",
+          "example": 5000
+        },
+        "total_views": {
+          "type": "integer",
+          "description": "Total advertisement views",
+          "example": 50000
+        },
+        "average_revenue_per_view": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Average revenue per view in smallest currency unit (cents)",
+          "example": 20
+        },
+        "partner_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total partner revenue in smallest currency unit (cents)",
+          "example": 600000
+        },
+        "merchant_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total merchant revenue in smallest currency unit (cents)",
+          "example": 300000
+        },
+        "glassbox_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total Glassbox revenue in smallest currency unit (cents)",
+          "example": 100000
+        },
+        "transactions_by_status": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "example": "processed"
+              },
+              "count": {
+                "type": "integer",
+                "example": 3000
+              },
+              "total_amount": {
+                "type": "integer",
+                "format": "int64",
+                "example": 600000
+              }
+            }
+          }
+        },
+        "revenue_growth": {
+          "type": "number",
+          "format": "float",
+          "description": "Revenue growth percentage compared to previous period",
+          "example": 15.5
+        },
+        "transaction_growth": {
+          "type": "number",
+          "format": "float",
+          "description": "Transaction growth percentage compared to previous period",
+          "example": 12.3
+        },
+        "view_growth": {
+          "type": "number",
+          "format": "float",
+          "description": "View growth percentage compared to previous period",
+          "example": 18.7
+        },
+        "top_partners": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "partner_id": {
+                "type": "string",
+                "example": "550e8400-e29b-41d4-a716-446655440000"
+              },
+              "partner_name": {
+                "type": "string",
+                "example": "Brand X"
+              },
+              "transaction_count": {
+                "type": "integer",
+                "example": 1500
+              },
+              "total_revenue": {
+                "type": "integer",
+                "format": "int64",
+                "example": 300000
+              },
+              "total_views": {
+                "type": "integer",
+                "example": 15000
+              }
+            }
+          }
+        },
+        "top_merchants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "merchant_id": {
+                "type": "string",
+                "example": "550e8400-e29b-41d4-a716-446655440001"
+              },
+              "merchant_name": {
+                "type": "string",
+                "example": "Restaurant ABC"
+              },
+              "transaction_count": {
+                "type": "integer",
+                "example": 800
+              },
+              "total_revenue": {
+                "type": "integer",
+                "format": "int64",
+                "example": 120000
+              },
+              "total_views": {
+                "type": "integer",
+                "example": 8000
+              }
+            }
+          }
+        },
+        "settlement_summary": {
+          "type": "object",
+          "properties": {
+            "total_settlements": {
+              "type": "integer",
+              "example": 12
+            },
+            "total_amount": {
+              "type": "integer",
+              "format": "int64",
+              "example": 800000
+            }
+          }
+        },
+        "pending_settlements": {
+          "type": "integer",
+          "description": "Number of pending settlements",
+          "example": 3
+        },
+        "active_fee_schemas": {
+          "type": "integer",
+          "description": "Number of active fee schemas",
+          "example": 8
+        },
+        "average_quality_score": {
+          "type": "number",
+          "format": "float",
+          "description": "Average view quality score",
+          "example": 0.95
+        },
+        "average_display_duration": {
+          "type": "number",
+          "format": "float",
+          "description": "Average display duration in seconds",
+          "example": 28.5
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code",
+          "example": "USD"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date",
+          "description": "Period start date",
+          "example": "2024-01-01"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date",
+          "description": "Period end date",
+          "example": "2024-01-31"
+        },
+        "period_days": {
+          "type": "integer",
+          "description": "Number of days in the period",
+          "example": 30
+        }
+      }
+    },
+    "PartnerDashboardResponse": {
+      "type": "object",
+      "properties": {
+        "total_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total partner revenue in smallest currency unit (cents)",
+          "example": 300000
+        },
+        "pending_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Pending revenue in smallest currency unit (cents)",
+          "example": 50000
+        },
+        "processed_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Processed revenue in smallest currency unit (cents)",
+          "example": 150000
+        },
+        "settled_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Settled revenue in smallest currency unit (cents)",
+          "example": 100000
+        },
+        "revenue_growth": {
+          "type": "number",
+          "format": "float",
+          "description": "Revenue growth percentage",
+          "example": 15.5
+        },
+        "total_views": {
+          "type": "integer",
+          "description": "Total advertisement views",
+          "example": 15000
+        },
+        "total_transactions": {
+          "type": "integer",
+          "description": "Total number of transactions",
+          "example": 1500
+        },
+        "average_revenue_per_view": {
+          "type": "number",
+          "format": "float",
+          "description": "Average revenue per view",
+          "example": 20.0
+        },
+        "average_display_duration": {
+          "type": "number",
+          "format": "float",
+          "description": "Average display duration in seconds",
+          "example": 30.0
+        },
+        "average_quality_score": {
+          "type": "number",
+          "format": "float",
+          "description": "Average view quality score",
+          "example": 0.95
+        },
+        "active_fee_schemas": {
+          "type": "integer",
+          "description": "Number of active fee schemas",
+          "example": 3
+        },
+        "transactions_by_status": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "example": {
+            "pending": 100,
+            "processed": 800,
+            "settled": 600
+          }
+        },
+        "revenue_by_day": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "example": {
+            "2024-01-01": 10000,
+            "2024-01-02": 12000,
+            "2024-01-03": 9500
+          }
+        },
+        "top_advertisements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AdvertisementPerformance"
+          }
+        },
+        "currency": {
+          "type": "string",
+          "example": "USD"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date",
+          "example": "2024-01-01"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date",
+          "example": "2024-01-31"
+        },
+        "period_days": {
+          "type": "integer",
+          "example": 30
+        }
+      }
+    },
+    "MerchantDashboardResponse": {
+      "type": "object",
+      "properties": {
+        "total_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total merchant revenue in smallest currency unit (cents)",
+          "example": 120000
+        },
+        "pending_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Pending revenue in smallest currency unit (cents)",
+          "example": 20000
+        },
+        "processed_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Processed revenue in smallest currency unit (cents)",
+          "example": 60000
+        },
+        "settled_revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Settled revenue in smallest currency unit (cents)",
+          "example": 40000
+        },
+        "revenue_growth": {
+          "type": "number",
+          "format": "float",
+          "description": "Revenue growth percentage",
+          "example": 12.3
+        },
+        "total_views": {
+          "type": "integer",
+          "description": "Total advertisement views",
+          "example": 8000
+        },
+        "total_transactions": {
+          "type": "integer",
+          "description": "Total number of transactions",
+          "example": 800
+        },
+        "average_revenue_per_view": {
+          "type": "number",
+          "format": "float",
+          "description": "Average revenue per view",
+          "example": 15.0
+        },
+        "average_display_duration": {
+          "type": "number",
+          "format": "float",
+          "description": "Average display duration in seconds",
+          "example": 25.0
+        },
+        "average_quality_score": {
+          "type": "number",
+          "format": "float",
+          "description": "Average view quality score",
+          "example": 0.92
+        },
+        "active_devices": {
+          "type": "integer",
+          "description": "Number of active devices",
+          "example": 5
+        },
+        "unique_advertisements": {
+          "type": "integer",
+          "description": "Number of unique advertisements displayed",
+          "example": 12
+        },
+        "revenue_by_day": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "example": {
+            "2024-01-01": 4000,
+            "2024-01-02": 4800,
+            "2024-01-03": 3800
+          }
+        },
+        "top_advertisements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AdvertisementPerformance"
+          }
+        },
+        "device_performance": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DevicePerformance"
+          }
+        },
+        "currency": {
+          "type": "string",
+          "example": "USD"
+        },
+        "period_start": {
+          "type": "string",
+          "format": "date",
+          "example": "2024-01-01"
+        },
+        "period_end": {
+          "type": "string",
+          "format": "date",
+          "example": "2024-01-31"
+        },
+        "period_days": {
+          "type": "integer",
+          "example": 30
+        }
+      }
+    },
+    "AdvertisementPerformance": {
+      "type": "object",
+      "properties": {
+        "advertisement_id": {
+          "type": "string",
+          "description": "Advertisement ID",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "advertisement_name": {
+          "type": "string",
+          "description": "Advertisement name",
+          "example": "Summer Sale Campaign"
+        },
+        "views": {
+          "type": "integer",
+          "description": "Total views",
+          "example": 1500
+        },
+        "revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total revenue in smallest currency unit (cents)",
+          "example": 30000
+        },
+        "total_duration": {
+          "type": "integer",
+          "description": "Total display duration in seconds",
+          "example": 45000
+        },
+        "average_quality": {
+          "type": "number",
+          "format": "float",
+          "description": "Average quality score",
+          "example": 0.95
+        }
+      }
+    },
+    "DevicePerformance": {
+      "type": "object",
+      "properties": {
+        "device_id": {
+          "type": "string",
+          "description": "Device ID",
+          "example": "550e8400-e29b-41d4-a716-446655440000"
+        },
+        "device_name": {
+          "type": "string",
+          "description": "Device name",
+          "example": "Tablet-001"
+        },
+        "views": {
+          "type": "integer",
+          "description": "Total views",
+          "example": 800
+        },
+        "revenue": {
+          "type": "integer",
+          "format": "int64",
+          "description": "Total revenue in smallest currency unit (cents)",
+          "example": 16000
+        },
+        "total_duration": {
+          "type": "integer",
+          "description": "Total display duration in seconds",
+          "example": 24000
+        },
+        "average_quality": {
+          "type": "number",
+          "format": "float",
+          "description": "Average quality score",
+          "example": 0.92
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User authentication operations"
+    },
+    {
+      "name": "Device Authentication",
+      "description": "Device authentication operations"
+    },
+    {
+      "name": "Users",
+      "description": "User management operations"
+    },
+    {
+      "name": "Merchants",
+      "description": "Merchant management operations"
+    },
+    {
+      "name": "Devices",
+      "description": "Device management operations"
+    },
+    {
+      "name": "Device Management",
+      "description": "Device status reporting and activity tracking for mobile/platform apps"
+    },
+    {
+      "name": "Push Notifications",
+      "description": "Firebase Cloud Messaging (FCM) token management and push notification operations"
+    },
+    {
+      "name": "File Management",
+      "description": "File upload and storage operations"
+    },
+    {
+      "name": "Asset Management",
+      "description": "Digital asset management operations (images, videos, documents)"
+    },
+    {
+      "name": "Advertisements",
+      "description": "Advertisement management and tracking operations"
+    },
+    {
+      "name": "Fee Management",
+      "description": "Fee schema and revenue sharing operations"
+    },
+    {
+      "name": "Transactions",
+      "description": "Fee transaction management operations"
+    },
+    {
+      "name": "Settlements",
+      "description": "Settlement and payout operations"
+    },
+    {
+      "name": "Revenue Reports",
+      "description": "Revenue reporting and analytics operations"
+    },
+    {
+      "name": "Dashboard",
+      "description": "Dashboard data and analytics for different user roles"
+    }
+  ]
+}
