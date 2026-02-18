@@ -12,7 +12,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   FormControl,
@@ -113,7 +112,6 @@ const RealPartnerDashboard: React.FC = () => {
   });
   
   const [advertisements, setAdvertisements] = useState<SystemAdvertisement[]>([]);
-  const [merchantAssignments, setMerchantAssignments] = useState<MerchantAdvertisement[]>([]);
   
   // Revenue data states
   const [partnerAnalytics, setPartnerAnalytics] = useState<PartnerAnalytics | null>(null);
@@ -141,10 +139,8 @@ const RealPartnerDashboard: React.FC = () => {
       try {
         const merchantAdsResponse = await apiService.get('/merchants/ads');
         assignments = merchantAdsResponse.data || [];
-        setMerchantAssignments(assignments);
       } catch (err) {
         // If endpoint doesn't exist, use empty array
-        setMerchantAssignments([]);
       }
       
       // Calculate stats from real data

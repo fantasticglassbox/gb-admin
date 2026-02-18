@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Paper,
@@ -43,8 +43,6 @@ import {
   Visibility as ViewIcon,
   People as PeopleIcon,
   Campaign as CampaignIcon,
-  AttachMoney as MoneyIcon,
-  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { PartnerResponse, FilterOptions, Merchant, AdvertisementResponse } from '../types';
 import { apiService } from '../services/api';
@@ -111,11 +109,7 @@ const PartnersManagement: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [partnerToDelete, setPartnerToDelete] = useState<PartnerResponse | null>(null);
 
-  useEffect(() => {
-    loadPartners();
-  }, [page, rowsPerPage, searchTerm]);
-
-  const loadPartners = async () => {
+  const loadPartners = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -137,7 +131,11 @@ const PartnersManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rowsPerPage, searchTerm]);
+
+  useEffect(() => {
+    loadPartners();
+  }, [loadPartners]);
 
   const loadPartnerDetails = async (partnerId: string) => {
     try {

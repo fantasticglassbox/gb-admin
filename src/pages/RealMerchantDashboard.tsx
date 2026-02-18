@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -33,7 +33,6 @@ import {
   PlayArrow as OnlineIcon,
   Stop as OfflineIcon,
   AttachMoney as MoneyIcon,
-  TrendingUp as TrendingUpIcon,
   Business as PartnersIcon,
 } from '@mui/icons-material';
 import {
@@ -100,7 +99,7 @@ interface MerchantAdvertisement {
 }
 
 const RealMerchantDashboard: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,19 +122,7 @@ const RealMerchantDashboard: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
 
-  useEffect(() => {
-    if (user?.id) {
-      loadDashboardData();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user?.id) {
-      loadRevenueData();
-    }
-  }, [user, selectedYear, selectedMonth]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -202,9 +189,9 @@ const RealMerchantDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, t]);
 
-  const loadRevenueData = async () => {
+  const loadRevenueData = useCallback(async () => {
     if (!user?.id) return;
     
     try {
@@ -217,7 +204,19 @@ const RealMerchantDashboard: React.FC = () => {
       console.warn('Failed to load merchant analytics:', err.response?.data?.message);
       setMerchantAnalytics(null);
     }
-  };
+  }, [user?.id, selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadDashboardData();
+    }
+  }, [user?.id, loadDashboardData]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadRevenueData();
+    }
+  }, [user?.id, loadRevenueData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

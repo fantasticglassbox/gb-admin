@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -32,9 +32,7 @@ import {
   Refresh as RefreshIcon,
   AttachMoney as MoneyIcon,
   TrendingUp as TrendingUpIcon,
-  Assessment as ReportIcon,
   AccountBalance as BusinessIcon,
-  ShowChart as AnalyticsIcon,
 } from '@mui/icons-material';
 import {
   BarChart,
@@ -114,7 +112,7 @@ interface RevenueSummary {
 }
 
 const RealAdminDashboard: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -139,15 +137,7 @@ const RealAdminDashboard: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  useEffect(() => {
-    loadRevenueData();
-  }, [selectedYear, selectedMonth]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -189,9 +179,9 @@ const RealAdminDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  const loadRevenueData = async () => {
+  const loadRevenueData = useCallback(async () => {
     try {
       // Load admin analytics
       const analyticsResponse = await apiService.getAdminAnalytics(selectedYear, selectedMonth);
@@ -210,7 +200,15 @@ const RealAdminDashboard: React.FC = () => {
     } catch (err: any) {
       console.warn('Failed to load revenue data:', err.response?.data?.message);
     }
-  };
+  }, [selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  useEffect(() => {
+    loadRevenueData();
+  }, [loadRevenueData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
