@@ -24,7 +24,6 @@ import {
   RevenueFilters,
   TransactionStats,
   MerchantAd,
-  DeviceAssignmentRequest,
 } from '../types';
 
 class ApiService {

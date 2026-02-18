@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
@@ -15,19 +15,16 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Tooltip,
-  Button,
 } from '@mui/material';
 import {
   Campaign as CampaignIcon,
   Assessment as AnalyticsIcon,
   Refresh as RefreshIcon,
-  Add as AddIcon,
   Edit as EditIcon,
   Visibility as ViewsIcon,
   AttachMoney as MoneyIcon,
@@ -100,7 +97,7 @@ interface MerchantAdvertisement {
 }
 
 const RealPartnerDashboard: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,19 +120,7 @@ const RealPartnerDashboard: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
 
-  useEffect(() => {
-    if (user?.id) {
-      loadDashboardData();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (user?.id) {
-      loadRevenueData();
-    }
-  }, [user, selectedYear, selectedMonth]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -152,9 +137,11 @@ const RealPartnerDashboard: React.FC = () => {
       setAdvertisements(partnerAds);
       
       // Try to get merchant assignments
+      let assignments: MerchantAdvertisement[] = [];
       try {
         const merchantAdsResponse = await apiService.get('/merchants/ads');
-        setMerchantAssignments(merchantAdsResponse.data || []);
+        assignments = merchantAdsResponse.data || [];
+        setMerchantAssignments(assignments);
       } catch (err) {
         // If endpoint doesn't exist, use empty array
         setMerchantAssignments([]);
@@ -175,7 +162,7 @@ const RealPartnerDashboard: React.FC = () => {
       
       // Count unique merchants assigned to this partner's ads
       const assignedMerchants = new Set(
-        merchantAssignments
+        assignments
           .filter(ma => partnerAds.some(ad => ad.id === ma.advertisement_id))
           .map(ma => ma.merchant_id)
       ).size;
@@ -194,9 +181,9 @@ const RealPartnerDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, t]);
 
-  const loadRevenueData = async () => {
+  const loadRevenueData = useCallback(async () => {
     if (!user?.id) return;
     
     try {
@@ -209,7 +196,19 @@ const RealPartnerDashboard: React.FC = () => {
       console.warn('Failed to load partner analytics:', err.response?.data?.message);
       setPartnerAnalytics(null);
     }
-  };
+  }, [user?.id, selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadDashboardData();
+    }
+  }, [user?.id, loadDashboardData]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadRevenueData();
+    }
+  }, [user?.id, loadRevenueData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -273,22 +272,6 @@ const RealPartnerDashboard: React.FC = () => {
       color: COLORS[index % COLORS.length],
     }));
   };
-
-  const getStateColor = (state: string) => {
-    switch (state.toUpperCase()) {
-      case 'PUBLISHED':
-      case 'ACTIVE':
-        return 'success';
-      case 'DRAFT':
-      case 'PENDING':
-        return 'warning';
-      case 'REJECTED':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
 
   if (loading) {
     return (

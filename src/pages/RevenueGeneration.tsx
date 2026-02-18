@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Box,
-  Paper,
   Typography,
   Button,
   Card,
   CardContent,
   Grid,
-  TextField,
   FormControl,
   InputLabel,
   Select,
@@ -28,7 +26,6 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
-  Tooltip,
   IconButton,
 } from '@mui/material';
 import {
@@ -42,7 +39,7 @@ import {
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
 
-interface RevenueGeneration {
+interface RevenueGenerationRecord {
   id: number;
   year: number;
   month: number;
@@ -65,7 +62,7 @@ const RevenueGeneration: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [generations, setGenerations] = useState<RevenueGeneration[]>([]);
+  const [generations, setGenerations] = useState<RevenueGenerationRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
@@ -91,7 +88,7 @@ const RevenueGeneration: React.FC = () => {
     setSuccess(null);
 
     try {
-      const response = await apiService.generateRevenue({
+      await apiService.generateRevenue({
         year,
         month,
         force_regenerate: forceRegenerate,
