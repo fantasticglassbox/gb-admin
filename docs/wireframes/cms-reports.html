@@ -1,0 +1,98 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8"><title>CMS · Laporan</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head><body class="bg-slate-100 m-0 font-sans">
+<div class="flex h-screen text-sm text-slate-800">
+  <aside class="w-56 bg-slate-900 text-slate-300 p-4 flex flex-col">
+    <div class="text-white font-bold text-lg">GBox</div>
+    <div class="text-xs text-slate-500">Admin · Indonesia</div>
+    <nav class="mt-6 space-y-1 text-sm">
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-dashboard.html">🏠 Beranda</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-campaigns.html">📺 Kampanye</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">🎨 Kreatif</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-devices.html">🖥 Perangkat</a>
+      <a class="block px-3 py-2 rounded bg-slate-800 text-white">📊 Laporan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-billing.html">💳 Tagihan</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 overflow-auto">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center px-6">
+      <h1 class="font-semibold">Laporan</h1>
+      <div class="ml-auto flex gap-2 text-xs">
+        <button class="px-3 py-1.5 border border-slate-300 rounded">Export CSV</button>
+        <button class="px-3 py-1.5 border border-slate-300 rounded">Export PDF</button>
+        <button class="px-3 py-1.5 border border-slate-300 rounded">e-Faktur XML</button>
+      </div>
+    </header>
+
+    <div class="p-6 space-y-4">
+      <div class="flex items-center gap-3 text-xs">
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Periode: 1-24 Mei 2026</option></select>
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Kelompokkan: per kampanye</option></select>
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Pengiklan: semua</option></select>
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Kota: semua</option></select>
+      </div>
+
+      <div class="bg-white p-5 rounded-lg shadow-sm">
+        <p class="font-semibold mb-3">Tayang harian per kampanye</p>
+        <svg viewBox="0 0 600 160" class="w-full">
+          <polyline fill="none" stroke="#10b981" stroke-width="2" points="0,140 25,130 50,120 75,100 100,90 125,80 150,70 175,80 200,90 225,100 250,90 275,80 300,70 325,60 350,50 375,55 400,60 425,55 450,50 475,45 500,40 525,45 550,50 575,45 600,40"/>
+          <polyline fill="none" stroke="#f59e0b" stroke-width="2" points="0,150 25,145 50,140 75,135 100,130 125,125 150,120 175,118 200,115 225,113 250,110 275,108 300,105 325,103 350,100 375,98 400,95 425,93 450,90 475,88 500,85 525,83 550,80 575,78 600,75"/>
+          <polyline fill="none" stroke="#3b82f6" stroke-width="2" points="0,155 25,150 50,148 75,145 100,140 125,135 150,130 175,125 200,120 225,115 250,110 275,105 300,100 325,95 350,90 375,85 400,80 425,75 450,70 475,68 500,65 525,63 550,60 575,58 600,55"/>
+          <text x="0" y="158" font-size="9" fill="#94a3b8">1 Mei</text>
+          <text x="600" y="158" font-size="9" fill="#94a3b8" text-anchor="end">24 Mei</text>
+        </svg>
+        <div class="flex gap-4 mt-3 text-xs">
+          <span class="flex items-center gap-1"><span class="w-3 h-1 bg-emerald-500"></span>Indomie Goreng</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-1 bg-amber-500"></span>BCA Xpresi</span>
+          <span class="flex items-center gap-1"><span class="w-3 h-1 bg-blue-500"></span>GoFood Sahur</span>
+        </div>
+      </div>
+
+      <div class="bg-white p-5 rounded-lg shadow-sm">
+        <p class="font-semibold mb-3">Performa per kampanye</p>
+        <table class="w-full text-sm">
+          <thead class="text-xs uppercase text-slate-500 border-b border-slate-200">
+            <tr><th class="py-2 text-left">Kampanye</th><th class="py-2 text-right">Tayang</th><th class="py-2 text-right">% Complete</th><th class="py-2 text-right">Avg watch (s)</th><th class="py-2 text-right">Spend</th><th class="py-2 text-right">CPM</th><th class="py-2 text-right">Pacing</th></tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr><td class="py-2"><b>Indomie Goreng 5/6</b><div class="text-xs text-slate-500">Indofood</div></td><td class="text-right">894,212</td><td class="text-right text-emerald-700">96.2%</td><td class="text-right">28.4</td><td class="text-right">Rp 142 jt</td><td class="text-right">Rp 158</td><td class="text-right"><span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs">on track</span></td></tr>
+            <tr><td class="py-2"><b>BCA Xpresi Gen Z</b><div class="text-xs text-slate-500">BCA</div></td><td class="text-right">681,318</td><td class="text-right text-emerald-700">94.1%</td><td class="text-right">29.1</td><td class="text-right">Rp 92 jt</td><td class="text-right">Rp 135</td><td class="text-right"><span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs">on track</span></td></tr>
+            <tr><td class="py-2"><b>GoFood Sahur Promo</b><div class="text-xs text-slate-500">Gojek</div></td><td class="text-right">402,891</td><td class="text-right text-amber-700">91.8%</td><td class="text-right">14.6</td><td class="text-right">Rp 41 jt</td><td class="text-right">Rp 102</td><td class="text-right"><span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">slow</span></td></tr>
+            <tr><td class="py-2"><b>Pop Mie Pedas Q2</b><div class="text-xs text-slate-500">Indofood</div></td><td class="text-right">402,018</td><td class="text-right text-emerald-700">95.4%</td><td class="text-right">15.0</td><td class="text-right">Rp 76 jt</td><td class="text-right">Rp 189</td><td class="text-right"><span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs">on track</span></td></tr>
+            <tr><td class="py-2"><b>Wardah Lipstik</b><div class="text-xs text-slate-500">Wardah</div></td><td class="text-right">218,114</td><td class="text-right text-emerald-700">93.2%</td><td class="text-right">21.8</td><td class="text-right">Rp 38 jt</td><td class="text-right">Rp 174</td><td class="text-right"><span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-xs">on track</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="bg-white p-5 rounded-lg shadow-sm">
+          <p class="font-semibold mb-3">Share of voice per kota</p>
+          <table class="w-full text-sm">
+            <tr><td>Jakarta</td><td class="text-right">38%</td><td class="w-24"><div class="h-2 bg-slate-100 rounded"><div class="h-full bg-emerald-500 rounded" style="width: 76%"></div></div></td></tr>
+            <tr><td>Surabaya</td><td class="text-right">18%</td><td><div class="h-2 bg-slate-100 rounded"><div class="h-full bg-emerald-500 rounded" style="width: 36%"></div></div></td></tr>
+            <tr><td>Medan</td><td class="text-right">12%</td><td><div class="h-2 bg-slate-100 rounded"><div class="h-full bg-emerald-500 rounded" style="width: 24%"></div></div></td></tr>
+            <tr><td>Bandung</td><td class="text-right">10%</td><td><div class="h-2 bg-slate-100 rounded"><div class="h-full bg-emerald-500 rounded" style="width: 20%"></div></div></td></tr>
+            <tr><td>Lainnya</td><td class="text-right">22%</td><td><div class="h-2 bg-slate-100 rounded"><div class="h-full bg-emerald-500 rounded" style="width: 44%"></div></div></td></tr>
+          </table>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow-sm">
+          <p class="font-semibold mb-3">Cache vs stream split</p>
+          <div class="flex items-center justify-around py-6">
+            <div class="text-center">
+              <p class="text-3xl font-semibold text-emerald-600">94%</p>
+              <p class="text-xs text-slate-500 mt-1">CACHE</p>
+            </div>
+            <div class="text-center">
+              <p class="text-3xl font-semibold text-amber-600">6%</p>
+              <p class="text-xs text-slate-500 mt-1">STREAM</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-500">High cache hit = pre-download flow sehat. Stream fallback hanya saat cache miss / network restore.</p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

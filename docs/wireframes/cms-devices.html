@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8"><title>CMS · Perangkat</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head><body class="bg-slate-100 m-0 font-sans">
+<div class="flex h-screen text-sm text-slate-800">
+  <aside class="w-56 bg-slate-900 text-slate-300 p-4 flex flex-col">
+    <div class="text-white font-bold text-lg">GBox</div>
+    <div class="text-xs text-slate-500">Admin · Indonesia</div>
+    <nav class="mt-6 space-y-1 text-sm">
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-dashboard.html">🏠 Beranda</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-campaigns.html">📺 Kampanye</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">🎨 Kreatif</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">📍 Lokasi</a>
+      <a class="block px-3 py-2 rounded bg-slate-800 text-white">🖥 Perangkat</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-reports.html">📊 Laporan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-billing.html">💳 Tagihan</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 overflow-auto">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center px-6">
+      <h1 class="font-semibold">Perangkat</h1>
+      <span class="ml-3 text-xs text-slate-500">892 total · 847 aktif · 38 lambat · 7 offline</span>
+      <div class="ml-auto flex gap-2 text-xs">
+        <button class="px-3 py-1.5 border border-slate-300 rounded">⊞ Grid</button>
+        <button class="px-3 py-1.5 border border-slate-300 rounded">☷ List</button>
+        <button class="px-3 py-1.5 bg-slate-900 text-white rounded">🗺 Peta</button>
+        <button class="px-3 py-1.5 bg-emerald-500 text-white rounded">+ Onboard perangkat</button>
+      </div>
+    </header>
+
+    <div class="p-6 space-y-4">
+      <div class="flex items-center gap-2 text-xs">
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Status: semua</option></select>
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Kota: semua</option></select>
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Tipe venue: semua</option></select>
+        <input class="bg-white border border-slate-300 px-2 py-1 rounded w-64" placeholder="Cari device ID atau lokasi…">
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div class="h-72 bg-slate-100 relative">
+          <svg viewBox="0 0 800 280" class="w-full h-full">
+            <text x="400" y="20" text-anchor="middle" font-size="11" fill="#94a3b8">PETA INDONESIA — sebaran 892 perangkat</text>
+            <g fill="#10b981">
+              <circle cx="180" cy="180" r="3"/><circle cx="200" cy="170" r="3"/><circle cx="220" cy="180" r="3"/>
+              <circle cx="240" cy="175" r="4"/><circle cx="260" cy="170" r="3"/>
+              <circle cx="280" cy="165" r="3"/><circle cx="300" cy="170" r="3"/>
+              <circle cx="320" cy="170" r="6"/><circle cx="340" cy="175" r="4"/><circle cx="350" cy="180" r="3"/>
+              <circle cx="360" cy="185" r="5"/><circle cx="380" cy="190" r="4"/><circle cx="400" cy="180" r="3"/>
+              <circle cx="420" cy="180" r="3"/><circle cx="440" cy="180" r="3"/><circle cx="460" cy="180" r="3"/>
+              <circle cx="480" cy="180" r="3"/><circle cx="500" cy="175" r="3"/>
+              <circle cx="540" cy="170" r="3"/><circle cx="600" cy="180" r="3"/>
+              <circle cx="640" cy="180" r="2"/><circle cx="680" cy="170" r="2"/>
+              <circle cx="700" cy="180" r="2"/>
+            </g>
+            <g fill="#ef4444">
+              <circle cx="160" cy="200" r="3"/><circle cx="380" cy="195" r="3"/>
+            </g>
+            <g fill="#f59e0b">
+              <circle cx="240" cy="195" r="3"/><circle cx="290" cy="185" r="3"/><circle cx="340" cy="195" r="3"/>
+            </g>
+          </svg>
+          <div class="absolute bottom-3 right-3 bg-white/90 rounded px-3 py-2 text-xs space-y-1 shadow-sm">
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Aktif · 847</div>
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>Lambat · 38</div>
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>Offline · 7</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div class="px-5 py-3 border-b border-slate-200 flex items-center">
+          <p class="font-semibold text-sm">⚠ Perangkat butuh perhatian</p>
+          <a class="ml-auto text-xs text-emerald-700 hover:underline">Aktifkan aturan alert →</a>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr><th class="py-2 px-4 text-left">Device ID</th><th class="py-2 px-4 text-left">Lokasi</th><th class="py-2 px-4 text-left">Masalah</th><th class="py-2 px-4 text-left">Sejak</th><th class="py-2 px-4"></th></tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr><td class="py-2 px-4 font-mono">🔴 ID-MDN-0042</td><td class="py-2 px-4">Sun Plaza Medan</td><td class="py-2 px-4">Offline</td><td class="py-2 px-4 text-slate-500">4j 12m</td><td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs" href="cms-device-detail.html">Detail →</a></td></tr>
+            <tr><td class="py-2 px-4 font-mono">🟡 ID-SBY-0188</td><td class="py-2 px-4">Tunjungan Plaza</td><td class="py-2 px-4">Error rate 31%</td><td class="py-2 px-4 text-slate-500">6j</td><td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Detail →</a></td></tr>
+            <tr><td class="py-2 px-4 font-mono">🟡 ID-DPS-0011</td><td class="py-2 px-4">I Gusti Ngurah Rai</td><td class="py-2 px-4">Sinkronisasi lambat</td><td class="py-2 px-4 text-slate-500">2j</td><td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Detail →</a></td></tr>
+            <tr><td class="py-2 px-4 font-mono">🔴 ID-JOG-0073</td><td class="py-2 px-4">Malioboro Mall</td><td class="py-2 px-4">Reboot loop</td><td class="py-2 px-4 text-slate-500">17m</td><td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Detail →</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

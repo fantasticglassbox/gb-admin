@@ -1,0 +1,137 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8"><title>CMS · Kampanye</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head><body class="bg-slate-100 m-0 font-sans">
+<div class="flex h-screen text-sm text-slate-800">
+  <aside class="w-56 bg-slate-900 text-slate-300 p-4 flex flex-col">
+    <div class="text-white font-bold text-lg">GBox</div>
+    <div class="text-xs text-slate-500">Admin · Indonesia</div>
+    <nav class="mt-6 space-y-1 text-sm">
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-dashboard.html">🏠 Beranda</a>
+      <a class="block px-3 py-2 rounded bg-slate-800 text-white">📺 Kampanye</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">🎨 Kreatif</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">📍 Lokasi</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-devices.html">🖥 Perangkat</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-reports.html">📊 Laporan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-billing.html">💳 Tagihan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">👥 Pengguna</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">⚙ Setelan</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 overflow-auto">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center px-6">
+      <h1 class="font-semibold">Kampanye</h1>
+      <div class="ml-auto">
+        <a class="bg-emerald-500 text-white px-4 py-2 rounded text-sm" href="cms-builder.html">+ Buat Kampanye</a>
+      </div>
+    </header>
+
+    <div class="p-6">
+      <div class="flex items-center gap-3 mb-4 text-xs">
+        <span class="text-slate-500">Filter:</span>
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Semua pengiklan</option></select>
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Status: LIVE, REVIEW</option></select>
+        <select class="bg-white border border-slate-300 px-2 py-1 rounded"><option>Periode: Mei 2026</option></select>
+        <span class="ml-auto text-slate-500">Halaman 1 dari 4 · 47 kampanye</span>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th class="py-2 px-4 text-left">Pengiklan ▾ / Kampanye</th>
+              <th class="py-2 px-4 text-left">Status</th>
+              <th class="py-2 px-4 text-right">Tayang (bulan)</th>
+              <th class="py-2 px-4 text-right">Anggaran</th>
+              <th class="py-2 px-4 text-right">Terpakai</th>
+              <th class="py-2 px-4"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr class="bg-slate-50">
+              <td class="py-2 px-4 font-medium" colspan="2">▾ Indofood <span class="text-slate-500 font-normal">· 2 kampanye</span></td>
+              <td></td>
+              <td class="py-2 px-4 text-right text-slate-700">Rp 320 jt</td>
+              <td class="py-2 px-4 text-right text-slate-700">Rp 218 jt</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td class="py-2 pl-10 pr-4"><b>Indomie Goreng 5/6</b><div class="text-xs text-slate-500">3 kreatif · 12 placement</div></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">⬤ LIVE</span></td>
+              <td class="py-2 px-4 text-right">1.218.402</td>
+              <td class="py-2 px-4 text-right">Rp 220 jt</td>
+              <td class="py-2 px-4 text-right">Rp 142 jt <span class="text-xs text-slate-500">(64%)</span></td>
+              <td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Detail →</a></td>
+            </tr>
+            <tr>
+              <td class="py-2 pl-10 pr-4"><b>Pop Mie Pedas Q2</b><div class="text-xs text-slate-500">2 kreatif · 8 placement</div></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">⬤ LIVE</span></td>
+              <td class="py-2 px-4 text-right">402.018</td>
+              <td class="py-2 px-4 text-right">Rp 100 jt</td>
+              <td class="py-2 px-4 text-right">Rp 76 jt <span class="text-xs text-slate-500">(76%)</span></td>
+              <td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Detail →</a></td>
+            </tr>
+
+            <tr class="bg-slate-50">
+              <td class="py-2 px-4 font-medium" colspan="2">▾ BCA <span class="text-slate-500 font-normal">· 2 kampanye</span></td>
+              <td></td>
+              <td class="py-2 px-4 text-right text-slate-700">Rp 180 jt</td>
+              <td class="py-2 px-4 text-right text-slate-700">Rp 92 jt</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td class="py-2 pl-10 pr-4"><b>BCA Xpresi Gen Z</b><div class="text-xs text-slate-500">4 kreatif · 21 placement</div></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">⬤ LIVE</span></td>
+              <td class="py-2 px-4 text-right">892.118</td>
+              <td class="py-2 px-4 text-right">Rp 120 jt</td>
+              <td class="py-2 px-4 text-right">Rp 92 jt <span class="text-xs text-slate-500">(77%)</span></td>
+              <td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Detail →</a></td>
+            </tr>
+            <tr>
+              <td class="py-2 pl-10 pr-4"><b>BCA KPR Lebaran</b><div class="text-xs text-slate-500">1 kreatif · pending review</div></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs">⊙ REVIEW</span></td>
+              <td class="py-2 px-4 text-right text-slate-400">—</td>
+              <td class="py-2 px-4 text-right">Rp 60 jt</td>
+              <td class="py-2 px-4 text-right text-slate-400">—</td>
+              <td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Detail →</a></td>
+            </tr>
+
+            <tr class="bg-slate-50">
+              <td class="py-2 px-4 font-medium" colspan="2">▾ Gojek <span class="text-slate-500 font-normal">· 1 kampanye</span></td>
+              <td></td>
+              <td class="py-2 px-4 text-right text-slate-700">Rp 95 jt</td>
+              <td class="py-2 px-4 text-right text-slate-700">Rp 41 jt</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td class="py-2 pl-10 pr-4"><b>GoFood Sahur Promo</b><div class="text-xs text-slate-500">2 kreatif · 14 placement</div></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">⬤ LIVE</span></td>
+              <td class="py-2 px-4 text-right">541.220</td>
+              <td class="py-2 px-4 text-right">Rp 95 jt</td>
+              <td class="py-2 px-4 text-right">Rp 41 jt <span class="text-xs text-slate-500">(43%)</span></td>
+              <td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Detail →</a></td>
+            </tr>
+
+            <tr class="bg-slate-50">
+              <td class="py-2 px-4 font-medium text-slate-500" colspan="6">▸ Wardah · 3 kampanye · Rp 78 jt</td>
+            </tr>
+            <tr class="bg-slate-50">
+              <td class="py-2 px-4 font-medium text-slate-500" colspan="6">▸ Mandiri · 2 kampanye · Rp 142 jt</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex items-center justify-center gap-1 mt-4 text-sm">
+        <button class="px-2 py-1 text-slate-400">‹</button>
+        <button class="px-3 py-1 bg-emerald-500 text-white rounded">1</button>
+        <button class="px-3 py-1 hover:bg-slate-200 rounded">2</button>
+        <button class="px-3 py-1 hover:bg-slate-200 rounded">3</button>
+        <button class="px-3 py-1 hover:bg-slate-200 rounded">4</button>
+        <button class="px-2 py-1 text-slate-600">›</button>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

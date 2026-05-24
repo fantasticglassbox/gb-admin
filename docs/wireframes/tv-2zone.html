@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8"><title>TV · 2-Zone</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head><body class="bg-slate-200 m-0">
+<div class="p-4 text-xs text-slate-600">
+  <b>Android TV · 2-zone split (SPLIT_70_30_H)</b> · Main = paid ads · Secondary = merchant content
+</div>
+<div class="mx-auto bg-black relative flex" style="aspect-ratio: 16/9; max-width: 1400px;">
+  <div class="flex-1 flex items-center justify-center text-slate-400 border-r border-slate-800" style="flex: 7;">
+    <div class="text-center">
+      <div class="text-6xl">▶</div>
+      <div class="mt-3 text-lg">AD VIDEO · 70%</div>
+      <div class="mt-1 text-xs text-slate-600">(BCA Xpresi · 15 s)</div>
+    </div>
+  </div>
+  <div class="flex-1 p-6 text-white flex flex-col" style="flex: 3;">
+    <div class="text-lg font-semibold mb-3 border-b border-slate-700 pb-2">MENU HARI INI</div>
+    <ul class="space-y-3 text-base">
+      <li class="flex justify-between"><span>Nasi Goreng</span><span class="text-emerald-400">35K</span></li>
+      <li class="flex justify-between"><span>Mie Ayam</span><span class="text-emerald-400">28K</span></li>
+      <li class="flex justify-between"><span>Es Teh</span><span class="text-emerald-400">10K</span></li>
+      <li class="flex justify-between"><span>Kopi Tubruk</span><span class="text-emerald-400">15K</span></li>
+      <li class="flex justify-between"><span>Roti Bakar</span><span class="text-emerald-400">22K</span></li>
+    </ul>
+    <div class="mt-auto pt-4 border-t border-slate-700 text-xs text-slate-500">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+        100% Halal · BPOM RI MD 123456789
+      </div>
+      <div class="mt-1 text-slate-600">Warung Mama Sri · Jl. Sudirman</div>
+    </div>
+  </div>
+</div>
+<div class="p-4 text-xs text-slate-500 max-w-3xl mx-auto">
+  Each zone is an independent ZoneRenderer with its own playlist + transition timer. Main rotates ads (15-30 s each); secondary holds merchant content for the day. Proof-of-play events carry <code>zone: MAIN</code> or <code>SECONDARY</code> so reporting can attribute impressions correctly. Unlocks the F&B segment + Indomaret-style POS displays.
+</div>
+</body></html>

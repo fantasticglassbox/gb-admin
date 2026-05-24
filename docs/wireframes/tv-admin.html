@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8"><title>TV · Admin Panel</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head><body class="bg-slate-200 m-0">
+<div class="p-4 text-xs text-slate-600">
+  <b>Android TV · Hidden admin panel</b> · Long-press <span class="font-mono bg-slate-300 px-1 rounded">MENU</span> 3s → PIN → enter
+</div>
+<div class="mx-auto bg-slate-950 text-slate-200 relative" style="aspect-ratio: 16/9; max-width: 1400px;">
+  <div class="h-full flex">
+    <aside class="w-56 bg-slate-900 p-4 text-sm">
+      <div class="font-semibold text-white mb-3">Admin · ID-JKT-0142</div>
+      <ul class="space-y-1">
+        <li class="px-3 py-2 rounded text-slate-400">Status</li>
+        <li class="px-3 py-2 rounded text-slate-400">Jaringan</li>
+        <li class="px-3 py-2 rounded text-slate-400">Penyimpanan</li>
+        <li class="px-3 py-2 rounded text-slate-400">Performa</li>
+        <li class="px-3 py-2 rounded text-slate-400">Iklan</li>
+        <li class="px-3 py-2 rounded text-slate-400">Log</li>
+        <li class="px-3 py-2 rounded text-slate-400">Bahasa</li>
+        <li class="px-3 py-2 rounded bg-emerald-600 text-white">▸ Tampilan</li>
+        <li class="px-3 py-2 rounded text-slate-400">Sinkronisasi</li>
+        <li class="px-3 py-2 rounded text-slate-400">Update</li>
+        <li class="px-3 py-2 rounded text-red-400 mt-6">Keluar</li>
+      </ul>
+    </aside>
+    <main class="flex-1 p-8">
+      <h2 class="text-xl font-semibold mb-6">Tampilan</h2>
+      <div class="space-y-6 max-w-xl">
+        <div>
+          <p class="text-sm mb-2 text-slate-400">Layout Layar</p>
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 cursor-pointer"><span class="w-4 h-4 rounded-full border border-slate-500"></span>Full screen (1 zone)</label>
+            <label class="flex items-center gap-3 cursor-pointer"><span class="w-4 h-4 rounded-full border-2 border-emerald-400 bg-emerald-400"></span>Split 70/30 horizontal <span class="text-xs text-emerald-400">(aktif)</span></label>
+            <label class="flex items-center gap-3 cursor-pointer"><span class="w-4 h-4 rounded-full border border-slate-500"></span>Split 80/20 vertikal</label>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-sm mb-2 text-slate-400">Brightness</p>
+          <div class="flex items-center gap-4">
+            <div class="flex-1 h-3 bg-slate-800 rounded overflow-hidden"><div class="h-full bg-amber-400" style="width: 80%"></div></div>
+            <span class="text-sm">80%</span>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-sm mb-2 text-slate-400">Volume</p>
+          <div class="flex items-center gap-4">
+            <div class="flex-1 h-3 bg-slate-800 rounded overflow-hidden"><div class="h-full bg-sky-400" style="width: 30%"></div></div>
+            <span class="text-sm">30%</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm mb-2 text-slate-400">Jam Aktif Mulai</p>
+            <div class="bg-slate-800 px-4 py-3 rounded font-mono">08 : 00</div>
+          </div>
+          <div>
+            <p class="text-sm mb-2 text-slate-400">Jam Aktif Berakhir</p>
+            <div class="bg-slate-800 px-4 py-3 rounded font-mono">22 : 00</div>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-sm mb-2 text-slate-400">Zona Waktu</p>
+          <div class="bg-slate-800 px-4 py-2 rounded inline-block">WIB · UTC+7</div>
+          <p class="text-xs text-slate-600 mt-1">Diatur dari CMS · tidak bisa diubah di perangkat</p>
+        </div>
+
+        <button class="bg-emerald-500 text-white px-6 py-2 rounded">SIMPAN</button>
+      </div>
+    </main>
+  </div>
+</div>
+<div class="p-4 text-xs text-slate-500 max-w-3xl mx-auto">
+  Hidden behind a long-press + 4-digit PIN (per-merchant, configured in CMS). Lets on-site ops adjust display + restart playback without an adb connection. Auto-locks after 5 min idle.
+</div>
+</body></html>

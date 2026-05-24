@@ -1,0 +1,130 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8"><title>CMS · Tagihan</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head><body class="bg-slate-100 m-0 font-sans">
+<div class="flex h-screen text-sm text-slate-800">
+  <aside class="w-56 bg-slate-900 text-slate-300 p-4 flex flex-col">
+    <div class="text-white font-bold text-lg">GBox</div>
+    <div class="text-xs text-slate-500">Admin · Indonesia</div>
+    <nav class="mt-6 space-y-1 text-sm">
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-dashboard.html">🏠 Beranda</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-campaigns.html">📺 Kampanye</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-devices.html">🖥 Perangkat</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-reports.html">📊 Laporan</a>
+      <a class="block px-3 py-2 rounded bg-slate-800 text-white">💳 Tagihan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">👥 Pengguna</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">⚙ Setelan</a>
+    </nav>
+  </aside>
+
+  <main class="flex-1 overflow-auto">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center px-6">
+      <h1 class="font-semibold">Tagihan</h1>
+      <div class="ml-auto flex gap-2 text-xs">
+        <button class="px-3 py-1.5 border border-slate-300 rounded">Tarik laporan</button>
+        <button class="px-3 py-1.5 bg-emerald-500 text-white rounded">+ Top up via QRIS</button>
+      </div>
+    </header>
+
+    <div class="p-6 space-y-4">
+      <div class="grid grid-cols-3 gap-4">
+        <div class="bg-white p-5 rounded-lg shadow-sm">
+          <p class="text-xs text-slate-500 uppercase">Saldo</p>
+          <p class="text-2xl font-semibold">Rp 0</p>
+          <p class="text-xs text-slate-500 mt-1">Tidak ada saldo top-up</p>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow-sm border-l-4 border-amber-500">
+          <p class="text-xs text-slate-500 uppercase">Tagihan jatuh tempo</p>
+          <p class="text-2xl font-semibold">Rp 18,4 jt</p>
+          <p class="text-xs text-amber-700 mt-1">jatuh tempo 31 Mei 2026</p>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow-sm">
+          <p class="text-xs text-slate-500 uppercase">Total dibayar 2026</p>
+          <p class="text-2xl font-semibold">Rp 412 jt</p>
+          <p class="text-xs text-emerald-700 mt-1">↑ 22% vs 2025</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div class="px-5 py-3 border-b border-slate-200">
+          <p class="font-semibold">Daftar tagihan</p>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+            <tr>
+              <th class="py-2 px-4 text-left">No. invoice</th>
+              <th class="py-2 px-4 text-left">Periode</th>
+              <th class="py-2 px-4 text-left">Kampanye</th>
+              <th class="py-2 px-4 text-right">Sub-total</th>
+              <th class="py-2 px-4 text-right">PPN 11%</th>
+              <th class="py-2 px-4 text-right">Total</th>
+              <th class="py-2 px-4 text-left">e-Faktur</th>
+              <th class="py-2 px-4 text-left">Status</th>
+              <th class="py-2 px-4"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr>
+              <td class="py-2 px-4 font-mono text-xs">INV-2026-05-0042</td>
+              <td class="py-2 px-4">Mei 2026</td>
+              <td class="py-2 px-4">Indomie · BCA Xpresi <span class="text-xs text-slate-500">(+2)</span></td>
+              <td class="py-2 px-4 text-right">Rp 218 jt</td>
+              <td class="py-2 px-4 text-right">Rp 24,0 jt</td>
+              <td class="py-2 px-4 text-right font-medium">Rp 242 jt</td>
+              <td class="py-2 px-4"><span class="text-emerald-700 text-xs">✓ 010.000-26.12345678</span></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs">⏳ JATUH TEMPO</span></td>
+              <td class="py-2 px-4 text-right"><a class="text-emerald-700 hover:underline text-xs">Bayar →</a></td>
+            </tr>
+            <tr>
+              <td class="py-2 px-4 font-mono text-xs">INV-2026-04-0038</td>
+              <td class="py-2 px-4">Apr 2026</td>
+              <td class="py-2 px-4">Wardah · Mandiri KTA <span class="text-xs text-slate-500">(+3)</span></td>
+              <td class="py-2 px-4 text-right">Rp 187 jt</td>
+              <td class="py-2 px-4 text-right">Rp 20,6 jt</td>
+              <td class="py-2 px-4 text-right font-medium">Rp 208 jt</td>
+              <td class="py-2 px-4"><span class="text-emerald-700 text-xs">✓ 010.000-26.11442211</span></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">✓ LUNAS</span></td>
+              <td class="py-2 px-4 text-right"><a class="text-slate-500 hover:underline text-xs">PDF</a></td>
+            </tr>
+            <tr>
+              <td class="py-2 px-4 font-mono text-xs">INV-2026-03-0029</td>
+              <td class="py-2 px-4">Mar 2026</td>
+              <td class="py-2 px-4">Gojek · Kapal Api <span class="text-xs text-slate-500">(+1)</span></td>
+              <td class="py-2 px-4 text-right">Rp 142 jt</td>
+              <td class="py-2 px-4 text-right">Rp 15,7 jt</td>
+              <td class="py-2 px-4 text-right font-medium">Rp 158 jt</td>
+              <td class="py-2 px-4"><span class="text-emerald-700 text-xs">✓ 010.000-26.10221199</span></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">✓ LUNAS</span></td>
+              <td class="py-2 px-4 text-right"><a class="text-slate-500 hover:underline text-xs">PDF</a></td>
+            </tr>
+            <tr>
+              <td class="py-2 px-4 font-mono text-xs">INV-2026-02-0021</td>
+              <td class="py-2 px-4">Feb 2026</td>
+              <td class="py-2 px-4">BCA Tabungan · Wardah</td>
+              <td class="py-2 px-4 text-right">Rp 119 jt</td>
+              <td class="py-2 px-4 text-right">Rp 13,1 jt</td>
+              <td class="py-2 px-4 text-right font-medium">Rp 132 jt</td>
+              <td class="py-2 px-4"><span class="text-emerald-700 text-xs">✓ 010.000-26.09887766</span></td>
+              <td class="py-2 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs">✓ LUNAS</span></td>
+              <td class="py-2 px-4 text-right"><a class="text-slate-500 hover:underline text-xs">PDF</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="bg-white p-5 rounded-lg shadow-sm">
+        <p class="font-semibold mb-3">Metode pembayaran tersedia</p>
+        <div class="grid grid-cols-6 gap-3 text-xs text-center">
+          <div class="border border-slate-200 rounded p-3"><div class="font-mono">VA BCA</div></div>
+          <div class="border border-slate-200 rounded p-3"><div class="font-mono">VA Mandiri</div></div>
+          <div class="border border-slate-200 rounded p-3"><div class="font-mono">VA BNI</div></div>
+          <div class="border border-slate-200 rounded p-3"><div class="font-mono">QRIS</div></div>
+          <div class="border border-slate-200 rounded p-3"><div class="font-mono">Xendit</div></div>
+          <div class="border border-slate-200 rounded p-3"><div class="font-mono">Midtrans</div></div>
+        </div>
+        <p class="text-xs text-slate-500 mt-3">e-Faktur dibuat otomatis lewat Klikpajak setiap penutupan periode bulan.</p>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>

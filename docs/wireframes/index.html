@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glassbox V2 — Wireframes</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  iframe { background: #000; }
+</style>
+</head>
+<body class="bg-slate-100 min-h-screen">
+<div class="flex h-screen">
+  <aside class="w-72 bg-slate-900 text-slate-200 p-5 overflow-y-auto">
+    <h1 class="text-xl font-bold text-white">Glassbox V2</h1>
+    <p class="text-xs text-slate-400 mt-1">Wireframe mockups · v0.1</p>
+
+    <div class="mt-6">
+      <p class="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Android TV Player</p>
+      <ul class="space-y-1 text-sm">
+        <li><a href="#" data-frame="tv-splash.html"      class="block px-3 py-2 rounded hover:bg-slate-800">Boot / Splash</a></li>
+        <li><a href="#" data-frame="tv-single-zone.html" class="block px-3 py-2 rounded hover:bg-slate-800">Carousel (single zone)</a></li>
+        <li><a href="#" data-frame="tv-2zone.html"       class="block px-3 py-2 rounded hover:bg-slate-800">Carousel (2-zone split)</a></li>
+        <li><a href="#" data-frame="tv-idle.html"        class="block px-3 py-2 rounded hover:bg-slate-800">Idle state</a></li>
+        <li><a href="#" data-frame="tv-admin.html"       class="block px-3 py-2 rounded hover:bg-slate-800">Admin panel (hidden)</a></li>
+      </ul>
+    </div>
+
+    <div class="mt-6">
+      <p class="text-[10px] uppercase tracking-wider text-slate-500 mb-2">Web CMS</p>
+      <ul class="space-y-1 text-sm">
+        <li><a href="#" data-frame="cms-dashboard.html"    class="block px-3 py-2 rounded hover:bg-slate-800">Beranda (dashboard)</a></li>
+        <li><a href="#" data-frame="cms-campaigns.html"    class="block px-3 py-2 rounded hover:bg-slate-800">Kampanye (hierarchy)</a></li>
+        <li><a href="#" data-frame="cms-builder.html"      class="block px-3 py-2 rounded hover:bg-slate-800">Booking flow</a></li>
+        <li><a href="#" data-frame="cms-devices.html"      class="block px-3 py-2 rounded hover:bg-slate-800">Device fleet</a></li>
+        <li><a href="#" data-frame="cms-device-detail.html" class="block px-3 py-2 rounded hover:bg-slate-800">Device detail</a></li>
+        <li><a href="#" data-frame="cms-reports.html"      class="block px-3 py-2 rounded hover:bg-slate-800">Laporan</a></li>
+        <li><a href="#" data-frame="cms-billing.html"      class="block px-3 py-2 rounded hover:bg-slate-800">Tagihan</a></li>
+      </ul>
+    </div>
+
+    <div class="mt-6 text-[11px] text-slate-500 border-t border-slate-700 pt-4">
+      <p>These are <span class="text-slate-300">structural wireframes</span> — flows + content density, not visual design. Finalize after stakeholder review.</p>
+      <p class="mt-3"><a href="../PRD.md" class="underline text-slate-300">Read the PRD →</a></p>
+    </div>
+  </aside>
+
+  <main class="flex-1 bg-slate-200 overflow-hidden">
+    <div class="h-12 bg-white border-b border-slate-300 flex items-center px-5 text-sm text-slate-600">
+      <span id="title" class="font-medium">Boot / Splash</span>
+      <span class="ml-auto text-xs text-slate-400">Use the sidebar to navigate</span>
+    </div>
+    <iframe id="frame" src="tv-splash.html" class="w-full" style="height: calc(100vh - 48px); border: 0;"></iframe>
+  </main>
+</div>
+
+<script>
+  document.querySelectorAll('a[data-frame]').forEach(a => {
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const src = a.dataset.frame;
+      document.getElementById('frame').src = src;
+      document.getElementById('title').textContent = a.textContent;
+      document.querySelectorAll('a[data-frame]').forEach(x => x.classList.remove('bg-slate-800', 'text-white'));
+      a.classList.add('bg-slate-800', 'text-white');
+    });
+  });
+</script>
+</body>
+</html>

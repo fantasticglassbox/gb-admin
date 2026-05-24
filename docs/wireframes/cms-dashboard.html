@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8"><title>CMS · Beranda</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head><body class="bg-slate-100 m-0 font-sans">
+<div class="flex h-screen text-sm text-slate-800">
+  <aside class="w-56 bg-slate-900 text-slate-300 p-4 flex flex-col">
+    <div class="text-white font-bold text-lg">GBox</div>
+    <div class="text-xs text-slate-500">Admin · Indonesia</div>
+    <nav class="mt-6 space-y-1 text-sm">
+      <a class="block px-3 py-2 rounded bg-slate-800 text-white">🏠 Beranda</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-campaigns.html">📺 Kampanye</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">🎨 Kreatif</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">📍 Lokasi</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-devices.html">🖥 Perangkat</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-reports.html">📊 Laporan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800" href="cms-billing.html">💳 Tagihan</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">👥 Pengguna</a>
+      <a class="block px-3 py-2 rounded hover:bg-slate-800">⚙ Setelan</a>
+    </nav>
+    <div class="mt-auto text-xs text-slate-500 border-t border-slate-700 pt-3">
+      <p>Pak Admin</p>
+      <p class="text-slate-600">admin@gbox.id</p>
+    </div>
+  </aside>
+
+  <main class="flex-1 overflow-auto">
+    <header class="h-14 bg-white border-b border-slate-200 flex items-center px-6">
+      <input class="bg-slate-100 px-3 py-1.5 rounded text-sm w-80" placeholder="Cari kampanye, perangkat, iklan…">
+      <div class="ml-auto flex items-center gap-4 text-slate-500">
+        <span class="text-xs">🔔 12</span>
+        <span>Bahasa: ID ▾</span>
+      </div>
+    </header>
+
+    <div class="p-6">
+      <div class="flex items-baseline justify-between">
+        <h1 class="text-2xl font-semibold">Beranda</h1>
+        <p class="text-xs text-slate-500">Hari ini · Jumat, 24 Mei 2026 · WIB</p>
+      </div>
+
+      <div class="grid grid-cols-4 gap-4 mt-5">
+        <div class="bg-white p-4 rounded-lg shadow-sm">
+          <p class="text-xs text-slate-500 uppercase">Perangkat aktif</p>
+          <p class="text-2xl font-semibold mt-1">847<span class="text-slate-400 text-base"> / 892</span></p>
+          <p class="text-xs text-emerald-600 mt-1">▲ 1.2% vs minggu lalu</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow-sm">
+          <p class="text-xs text-slate-500 uppercase">Kampanye LIVE</p>
+          <p class="text-2xl font-semibold mt-1">23</p>
+          <p class="text-xs text-emerald-600 mt-1">▲ 4 dari minggu lalu</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow-sm">
+          <p class="text-xs text-slate-500 uppercase">Pendapatan bulan ini</p>
+          <p class="text-2xl font-semibold mt-1">Rp 142,3 jt</p>
+          <p class="text-xs text-emerald-600 mt-1">▲ 8.4%</p>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow-sm">
+          <p class="text-xs text-slate-500 uppercase">Tayang hari ini</p>
+          <p class="text-2xl font-semibold mt-1">1,2 juta</p>
+          <p class="text-xs text-emerald-600 mt-1">▲ 12%</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-4 mt-5">
+        <div class="bg-white p-5 rounded-lg shadow-sm col-span-2">
+          <p class="text-sm font-medium mb-3">Pendapatan 30 hari (Rp jt)</p>
+          <svg viewBox="0 0 600 160" class="w-full">
+            <polyline fill="none" stroke="#10b981" stroke-width="2"
+              points="0,140 20,130 40,120 60,100 80,80 100,60 120,55 140,65 160,70 180,80 200,75 220,70 240,60 260,50 280,40 300,45 320,55 340,65 360,70 380,75 400,70 420,60 440,50 460,45 480,40 500,35 520,30 540,40 560,50 580,45" />
+            <text x="0" y="155" font-size="10" fill="#94a3b8">1 Mei</text>
+            <text x="540" y="155" font-size="10" fill="#94a3b8">24 Mei</text>
+          </svg>
+          <p class="text-xs text-slate-500 mt-2">Total Rp 1,42 M</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-lg shadow-sm">
+          <p class="text-sm font-medium mb-3">Perangkat butuh perhatian</p>
+          <ul class="space-y-2 text-sm">
+            <li class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500"></span><span class="flex-1">ID-MDN-0042</span><span class="text-xs text-slate-500">Offline 4j</span></li>
+            <li class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span><span class="flex-1">ID-SBY-0188</span><span class="text-xs text-slate-500">Error 31%</span></li>
+            <li class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span><span class="flex-1">ID-DPS-0011</span><span class="text-xs text-slate-500">Sinkr lambat</span></li>
+            <li class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500"></span><span class="flex-1">ID-JOG-0073</span><span class="text-xs text-slate-500">Reboot loop</span></li>
+          </ul>
+          <a class="block mt-3 text-xs text-emerald-700 hover:underline" href="cms-devices.html">Lihat semua 12 alert →</a>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 mt-5">
+        <div class="bg-white p-5 rounded-lg shadow-sm">
+          <p class="text-sm font-medium mb-3">Iklan paling banyak ditayangkan</p>
+          <table class="w-full text-sm">
+            <tr class="border-b border-slate-100"><td class="py-2">1. Indomaret Lebaran</td><td class="text-right text-slate-500">89,213</td></tr>
+            <tr class="border-b border-slate-100"><td class="py-2">2. Kapal Api Promo</td><td class="text-right text-slate-500">67,402</td></tr>
+            <tr class="border-b border-slate-100"><td class="py-2">3. BCA Tabungan</td><td class="text-right text-slate-500">54,118</td></tr>
+            <tr><td class="py-2">4. Mandiri KTA</td><td class="text-right text-slate-500">48,007</td></tr>
+          </table>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow-sm">
+          <p class="text-sm font-medium mb-3">Aktivitas terbaru</p>
+          <ul class="space-y-2 text-sm">
+            <li class="flex gap-2"><span class="text-slate-400 w-10 shrink-0">14:32</span><span>Partner Sinar Media setujui kampanye <b>Wardah Lipstik Q2</b></span></li>
+            <li class="flex gap-2"><span class="text-slate-400 w-10 shrink-0">14:22</span><span>admin@gbox edit kampanye <b>Gojek Promo Sahur</b></span></li>
+            <li class="flex gap-2"><span class="text-slate-400 w-10 shrink-0">13:48</span><span>Perangkat ID-MDN-0042 offline > 1 jam</span></li>
+            <li class="flex gap-2"><span class="text-slate-400 w-10 shrink-0">13:30</span><span>Advertiser BCA upload kreatif baru</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body></html>
