@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, LayersControl } from 'react-leaflet';
-import { 
-  Box, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Chip, 
+import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  Chip,
   Grid,
   useTheme,
   Avatar,
@@ -17,28 +17,21 @@ import {
   Divider,
   LinearProgress,
   Stack,
-  Badge,
   IconButton,
-  Tooltip,
   Switch,
   FormControlLabel,
 } from '@mui/material';
 import {
   LocationCity as CityIcon,
-  Devices as DevicesIcon,
-  CheckCircle as ActiveIcon,
-  PendingActions as PendingIcon,
   Tv as TvIcon,
   Tablet as TabletIcon,
   Phone as PhoneIcon,
   Computer as KioskIcon,
   DeviceUnknown as UnknownIcon,
   TrendingUp as TrendingIcon,
-  Visibility as ViewIcon,
   ZoomIn as ZoomIcon,
   LayersOutlined as LayersIconOutlined,
 } from '@mui/icons-material';
-import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -104,7 +97,6 @@ const CityDeploymentMap: React.FC<CityDeploymentMapProps> = ({
   height = 600 
 }) => {
   const theme = useTheme();
-  const { t } = useTranslation();
   const [mapCenter, setMapCenter] = useState<[number, number]>([-6.2088, 106.8456]);
   const [showHeatCircles, setShowHeatCircles] = useState(true);
   const [selectedCity, setSelectedCity] = useState<CityDeployment | null>(null);
