@@ -20,6 +20,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
+  TextField,
+  InputAdornment,
   Chip,
   IconButton,
   Tooltip,
@@ -33,6 +36,7 @@ import {
   Assessment as ReportIcon,
   GetApp as ExportIcon,
   Visibility as ViewIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import {
   XAxis,
@@ -105,6 +109,35 @@ const DetailedRevenueReport: React.FC = () => {
   // Data states
   const [reportData, setReportData] = useState<DetailedRevenueReportData | null>(null);
   const [summaryData, setSummaryData] = useState<any>(null);
+
+  // Independent search + pagination for the two large tables on this page.
+  // Both client-side: the backend already returns the full period in one
+  // response, so filtering/paging is cheap and avoids extra round-trips.
+  const [merchantSearch, setMerchantSearch] = useState('');
+  const [merchantPage, setMerchantPage] = useState(0);
+  const [merchantRowsPerPage, setMerchantRowsPerPage] = useState(10);
+
+  const [breakdownSearch, setBreakdownSearch] = useState('');
+  const [breakdownPage, setBreakdownPage] = useState(0);
+  const [breakdownRowsPerPage, setBreakdownRowsPerPage] = useState(10);
+
+  const filteredMerchantSummary: MerchantSummary[] = (reportData?.merchant_summary || []).filter((m) => {
+    if (!merchantSearch.trim()) return true;
+    return (m.merchant_name || '').toLowerCase().includes(merchantSearch.toLowerCase());
+  });
+  const pagedMerchantSummary = filteredMerchantSummary.slice(
+    merchantPage * merchantRowsPerPage,
+    merchantPage * merchantRowsPerPage + merchantRowsPerPage,
+  );
+
+  const filteredBreakdown: RevenueBreakdown[] = (reportData?.revenue_breakdown || []).filter((b) => {
+    if (!breakdownSearch.trim()) return true;
+    return (b.merchant_name || '').toLowerCase().includes(breakdownSearch.toLowerCase());
+  });
+  const pagedBreakdown = filteredBreakdown.slice(
+    breakdownPage * breakdownRowsPerPage,
+    breakdownPage * breakdownRowsPerPage + breakdownRowsPerPage,
+  );
 
   useEffect(() => {
     loadRevenueData();
@@ -543,7 +576,25 @@ const DetailedRevenueReport: React.FC = () => {
                     </BarChart>
                   </ResponsiveContainer>
 
-                  <TableContainer sx={{ mt: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Cari merchant…"
+                    value={merchantSearch}
+                    onChange={(e) => {
+                      setMerchantSearch(e.target.value);
+                      setMerchantPage(0);
+                    }}
+                    sx={{ mt: 2, mb: 1 }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <TableContainer>
                     <Table>
                       <TableHead>
                         <TableRow>
@@ -554,25 +605,47 @@ const DetailedRevenueReport: React.FC = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {(reportData.merchant_summary || []).map((merchant) => (
-                          <TableRow key={merchant.merchant_id}>
-                            <TableCell>{merchant.merchant_name}</TableCell>
-                            <TableCell align="right">{formatNumber(merchant.total_ads)}</TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2" fontWeight="medium">
-                                {formatCurrency(merchant.total_revenue)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2" fontWeight="medium" color="primary">
-                                {formatCurrency(merchant.net_revenue)}
+                        {pagedMerchantSummary.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
+                              <Typography variant="body2" color="textSecondary">
+                                {merchantSearch ? 'Tidak ada merchant yang cocok' : t('noDataFound')}
                               </Typography>
                             </TableCell>
                           </TableRow>
-                        ))}
+                        ) : (
+                          pagedMerchantSummary.map((merchant) => (
+                            <TableRow key={merchant.merchant_id}>
+                              <TableCell>{merchant.merchant_name}</TableCell>
+                              <TableCell align="right">{formatNumber(merchant.total_ads)}</TableCell>
+                              <TableCell align="right">
+                                <Typography variant="body2" fontWeight="medium">
+                                  {formatCurrency(merchant.total_revenue)}
+                                </Typography>
+                              </TableCell>
+                              <TableCell align="right">
+                                <Typography variant="body2" fontWeight="medium" color="primary">
+                                  {formatCurrency(merchant.net_revenue)}
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </TableContainer>
+                  <TablePagination
+                    component="div"
+                    count={filteredMerchantSummary.length}
+                    page={merchantPage}
+                    onPageChange={(_, p) => setMerchantPage(p)}
+                    rowsPerPage={merchantRowsPerPage}
+                    onRowsPerPageChange={(e) => {
+                      setMerchantRowsPerPage(parseInt(e.target.value, 10));
+                      setMerchantPage(0);
+                    }}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                  />
                 </Box>
               )}
 
@@ -644,6 +717,24 @@ const DetailedRevenueReport: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Detailed Revenue Breakdown
               </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Cari merchant…"
+                value={breakdownSearch}
+                onChange={(e) => {
+                  setBreakdownSearch(e.target.value);
+                  setBreakdownPage(0);
+                }}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
               <TableContainer>
                 <Table>
                   <TableHead>
@@ -658,16 +749,18 @@ const DetailedRevenueReport: React.FC = () => {
                     </TableRow>
                   </TableHead>
             <TableBody>
-              {!reportData.revenue_breakdown || reportData.revenue_breakdown.length === 0 ? (
+              {filteredBreakdown.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <Typography variant="body2" color="textSecondary">
-                      {t('noDataFound')} for the selected period
+                      {breakdownSearch
+                        ? 'Tidak ada merchant yang cocok'
+                        : `${t('noDataFound')} for the selected period`}
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                reportData.revenue_breakdown.map((item, index) => (
+                pagedBreakdown.map((item, index) => (
                   <TableRow key={`${item.merchant_id}-${index}`} hover>
                     <TableCell>{item.merchant_name}</TableCell>
                     <TableCell align="right">{formatNumber(item.total_ads_count)}</TableCell>
@@ -707,6 +800,18 @@ const DetailedRevenueReport: React.FC = () => {
             </TableBody>
                 </Table>
               </TableContainer>
+              <TablePagination
+                component="div"
+                count={filteredBreakdown.length}
+                page={breakdownPage}
+                onPageChange={(_, p) => setBreakdownPage(p)}
+                rowsPerPage={breakdownRowsPerPage}
+                onRowsPerPageChange={(e) => {
+                  setBreakdownRowsPerPage(parseInt(e.target.value, 10));
+                  setBreakdownPage(0);
+                }}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+              />
             </CardContent>
           </Card>
         </>

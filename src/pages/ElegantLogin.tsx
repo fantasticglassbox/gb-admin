@@ -12,16 +12,12 @@ import {
   InputAdornment,
   IconButton,
   Stack,
-  Divider,
 } from '@mui/material';
 import {
   Visibility,
   VisibilityOff,
   Person as PersonIcon,
   Lock as LockIcon,
-  TvOutlined,
-  CampaignOutlined,
-  InsightsOutlined,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { LoginRequest } from '../types';
@@ -127,7 +123,7 @@ const ElegantLogin: React.FC = () => {
             }}
           />
           <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '0.02em' }}>
-            Glassbox Media
+            Portal
           </Typography>
         </Stack>
 
@@ -146,44 +142,6 @@ const ElegantLogin: React.FC = () => {
             Platform DOOH untuk pasar Indonesia — pantau perangkat, jadwalkan
             kampanye, dan kelola pendapatan partner-merchant secara real-time.
           </Typography>
-
-          <Stack direction="row" spacing={4} sx={{ mt: 5 }}>
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ opacity: 0.9 }}>
-                <TvOutlined fontSize="small" />
-                <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Perangkat aktif
-                </Typography>
-              </Stack>
-              <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5 }}>
-                847
-              </Typography>
-            </Box>
-            <Divider orientation="vertical" flexItem sx={{ borderColor: alpha('#fff', 0.2) }} />
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ opacity: 0.9 }}>
-                <CampaignOutlined fontSize="small" />
-                <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Kampanye LIVE
-                </Typography>
-              </Stack>
-              <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5 }}>
-                23
-              </Typography>
-            </Box>
-            <Divider orientation="vertical" flexItem sx={{ borderColor: alpha('#fff', 0.2) }} />
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ opacity: 0.9 }}>
-                <InsightsOutlined fontSize="small" />
-                <Typography variant="caption" sx={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Tayang hari ini
-                </Typography>
-              </Stack>
-              <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5 }}>
-                1,2 jt
-              </Typography>
-            </Box>
-          </Stack>
         </Box>
 
         {/* Bottom: legal */}

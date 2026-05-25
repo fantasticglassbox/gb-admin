@@ -19,6 +19,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
+  TextField,
+  InputAdornment,
   Chip,
   Dialog,
   DialogTitle,
@@ -36,6 +39,7 @@ import {
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
   Info as InfoIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
 
@@ -65,6 +69,27 @@ const RevenueGeneration: React.FC = () => {
   const [generations, setGenerations] = useState<RevenueGenerationRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+
+  // History table: client-side search + pagination over the loaded slice.
+  // Server already caps the result at 20, but if that grows the UI is ready.
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const filteredGenerations = generations.filter((gen) => {
+    if (!searchTerm.trim()) return true;
+    const q = searchTerm.toLowerCase();
+    const period = `${gen.year}-${gen.month.toString().padStart(2, '0')}`;
+    return (
+      period.includes(q) ||
+      (gen.status || '').toLowerCase().includes(q) ||
+      (gen.generated_by || '').toLowerCase().includes(q)
+    );
+  });
+  const pagedGenerations = filteredGenerations.slice(
+    page * rowsPerPage,
+    page * rowsPerPage + rowsPerPage,
+  );
 
   useEffect(() => {
     loadGenerationHistory();
@@ -316,6 +341,25 @@ const RevenueGeneration: React.FC = () => {
                 </IconButton>
               </Box>
 
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Cari periode (2026-05), status, atau generator…"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(0);
+                }}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
               <TableContainer>
                 <Table>
                   <TableHead>
@@ -336,16 +380,16 @@ const RevenueGeneration: React.FC = () => {
                           <CircularProgress />
                         </TableCell>
                       </TableRow>
-                    ) : generations.length === 0 ? (
+                    ) : filteredGenerations.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                           <Typography variant="body2" color="textSecondary">
-                            {t('noDataFound')}
+                            {searchTerm ? 'Tidak ada hasil yang cocok' : t('noDataFound')}
                           </Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
-                      generations.map((gen) => (
+                      pagedGenerations.map((gen) => (
                         <TableRow key={gen.id} hover>
                           <TableCell>
                             <Typography variant="body2" fontWeight="medium">
@@ -393,6 +437,19 @@ const RevenueGeneration: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+
+              <TablePagination
+                component="div"
+                count={filteredGenerations.length}
+                page={page}
+                onPageChange={(_, newPage) => setPage(newPage)}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={(e) => {
+                  setRowsPerPage(parseInt(e.target.value, 10));
+                  setPage(0);
+                }}
+                rowsPerPageOptions={[5, 10, 25, 50]}
+              />
             </CardContent>
           </Card>
         </Grid>

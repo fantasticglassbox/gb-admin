@@ -270,48 +270,20 @@ const ElegantLayout: React.FC = () => {
         borderRight: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
       }}
     >
-      {/* Logo Section */}
-      <Box
-        sx={{
-          p: 3,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-          background: `linear-gradient(135deg, 
-            ${alpha(theme.palette.primary.main, 0.08)} 0%, 
-            ${alpha(theme.palette.primary.main, 0.03)} 100%
-          )`,
-        }}
-      >
+      {/* Logo section — no card, no shadow, no divider. Just breathing room
+          so the logo sits on the same continuous gradient as the nav below. */}
+      <Box sx={{ px: 3, pt: 3.5, pb: 3, display: 'flex', alignItems: 'center' }}>
         <Box
           component="img"
           src="/logo.webp"
-          alt="Glassbox Logo"
+          alt="Glassbox"
           sx={{
-            height: 40,
+            height: 36,
             width: 'auto',
-            maxWidth: 120,
+            maxWidth: 160,
             objectFit: 'contain',
-            borderRadius: 1,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
           }}
         />
-        <Box sx={{ ml: 1 }}>
-          <Typography
-            variant="caption"
-              sx={{
-                color: theme.palette.text.secondary,
-                fontSize: '0.7rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.1em',
-                display: 'block',
-                lineHeight: 1,
-              }}
-          >
-            Admin Portal
-          </Typography>
-        </Box>
       </Box>
 
 
@@ -348,18 +320,34 @@ const ElegantLayout: React.FC = () => {
                     <ListItemButton
                       onClick={() => navigate(`/${getBasePath()}/${item.path}`)}
                       sx={{
+                        // Soft pill with a left accent bar instead of a heavy
+                        // filled rectangle. Active state stays visible but
+                        // doesn't shout.
                         borderRadius: 2,
                         py: 1,
-                        px: 2,
-                        color: isActive ? 'white' : theme.palette.text.primary,
+                        pl: 2,
+                        pr: 2,
+                        position: 'relative',
+                        color: isActive ? theme.palette.primary.dark : theme.palette.text.primary,
                         backgroundColor: isActive
-                          ? theme.palette.primary.main
+                          ? alpha(theme.palette.primary.main, 0.12)
                           : 'transparent',
+                        '&::before': isActive
+                          ? {
+                              content: '""',
+                              position: 'absolute',
+                              left: 6,
+                              top: 8,
+                              bottom: 8,
+                              width: 3,
+                              borderRadius: 2,
+                              backgroundColor: theme.palette.primary.main,
+                            }
+                          : undefined,
                         '&:hover': {
                           backgroundColor: isActive
-                            ? theme.palette.primary.dark
-                            : alpha(theme.palette.primary.main, 0.08),
-                          color: isActive ? 'white' : theme.palette.primary.dark,
+                            ? alpha(theme.palette.primary.main, 0.16)
+                            : alpha(theme.palette.primary.main, 0.06),
                         },
                         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                       }}

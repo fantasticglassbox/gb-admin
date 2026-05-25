@@ -105,18 +105,20 @@ class ApiService {
 
   // Users Management
   async getUsers(filters?: FilterOptions): Promise<PaginatedResponse<User>> {
-    const response: AxiosResponse<{ users: User[] }> = await this.api.get('/user/list', {
-      params: filters,
-    });
-    
-    // Transform API response to match expected PaginatedResponse format
+    const response: AxiosResponse<{
+      users: User[];
+      pagination?: { page: number; limit: number; total: number };
+    }> = await this.api.get('/user/list', { params: filters });
+
+    const users = response.data.users || [];
+    // Prefer the backend's pagination block (post May-2026 fix). Fall back to
+    // synthesizing one for any deploy where the backend hasn't shipped yet.
+    const p = response.data.pagination;
     return {
-      data: response.data.users || [],
-      pagination: {
-        total: response.data.users?.length || 0,
-        page: 1,
-        limit: response.data.users?.length || 0
-      }
+      data: users,
+      pagination: p
+        ? { total: p.total, page: p.page, limit: p.limit }
+        : { total: users.length, page: 1, limit: users.length },
     };
   }
 
@@ -164,20 +166,23 @@ class ApiService {
     await this.api.delete(`/user/${id}`);
   }
 
-  // Partners Management - No dedicated endpoint available, return empty data
+  // Partners Management
   async getPartners(filters?: FilterOptions): Promise<PaginatedResponse<Partner>> {
-    const response: AxiosResponse<Partner[]> = await this.api.get('/partners', {
-      params: filters,
-    });
-    
-    // Transform API response to match expected PaginatedResponse format
+    const response: AxiosResponse<
+      | Partner[]
+      | { data: Partner[]; pagination: { page: number; limit: number; total: number } }
+    > = await this.api.get('/partners', { params: filters });
+
+    // Backend post-fix returns { data, pagination }. Legacy fallback for any
+    // older deploy still returns a bare array.
+    const body: any = response.data;
+    const partners: Partner[] = Array.isArray(body) ? body : body?.data ?? [];
+    const p = Array.isArray(body) ? undefined : body?.pagination;
     return {
-      data: response.data || [],
-      pagination: {
-        total: response.data?.length || 0,
-        page: 1,
-        limit: response.data?.length || 0,
-      }
+      data: partners,
+      pagination: p
+        ? { total: p.total, page: p.page, limit: p.limit }
+        : { total: partners.length, page: 1, limit: partners.length },
     };
   }
 
@@ -202,18 +207,15 @@ class ApiService {
 
   // Merchants Management
   async getMerchants(filters?: FilterOptions): Promise<PaginatedResponse<Merchant>> {
-    const response: AxiosResponse<Merchant[]> = await this.api.get('/merchants', {
-      params: filters,
-    });
-    
-    // Transform API response to match expected PaginatedResponse format
+    const response = await this.api.get('/merchants', { params: filters });
+    const body: any = response.data;
+    const merchants: Merchant[] = Array.isArray(body) ? body : body?.data ?? [];
+    const p = Array.isArray(body) ? undefined : body?.pagination;
     return {
-      data: response.data || [],
-      pagination: {
-        total: response.data?.length || 0,
-        page: 1,
-        limit: response.data?.length || 0
-      }
+      data: merchants,
+      pagination: p
+        ? { total: p.total, page: p.page, limit: p.limit }
+        : { total: merchants.length, page: 1, limit: merchants.length },
     };
   }
 
@@ -350,18 +352,15 @@ class ApiService {
 
   // Advertisements Management
   async getAdvertisements(filters?: FilterOptions): Promise<PaginatedResponse<Advertisement>> {
-    const response: AxiosResponse<Advertisement[]> = await this.api.get('/advertisements/list', {
-      params: filters,
-    });
-    
-    // Transform API response to match expected PaginatedResponse format
+    const response = await this.api.get('/advertisements/list', { params: filters });
+    const body: any = response.data;
+    const ads: Advertisement[] = Array.isArray(body) ? body : body?.data ?? [];
+    const p = Array.isArray(body) ? undefined : body?.pagination;
     return {
-      data: response.data || [],
-      pagination: {
-        total: response.data?.length || 0,
-        page: 1,
-        limit: response.data?.length || 0
-      }
+      data: ads,
+      pagination: p
+        ? { total: p.total, page: p.page, limit: p.limit }
+        : { total: ads.length, page: 1, limit: ads.length },
     };
   }
 
@@ -491,18 +490,15 @@ class ApiService {
   // File/Asset Management
 
   async getAssets(filters?: FilterOptions): Promise<PaginatedResponse<Asset>> {
-    const response: AxiosResponse<Asset[]> = await this.api.get('/assets', {
-      params: filters,
-    });
-    
-    // Transform API response to match expected PaginatedResponse format
+    const response = await this.api.get('/assets', { params: filters });
+    const body: any = response.data;
+    const assets: Asset[] = Array.isArray(body) ? body : body?.data ?? [];
+    const p = Array.isArray(body) ? undefined : body?.pagination;
     return {
-      data: response.data || [],
-      pagination: {
-        total: response.data?.length || 0,
-        page: 1,
-        limit: response.data?.length || 0
-      }
+      data: assets,
+      pagination: p
+        ? { total: p.total, page: p.page, limit: p.limit }
+        : { total: assets.length, page: 1, limit: assets.length },
     };
   }
 
@@ -524,11 +520,22 @@ class ApiService {
   }
 
   // Merchant Ads Assignment
+  //
+  // Backend's /merchants/ads returns a bare array when called with no
+  // pagination params (back-compat for gb-media TV client) OR a
+  // { data, pagination } envelope when any pagination param is present.
+  // Always pass at least { page: 1, limit: N } to force the paginated shape.
   async getMerchantAds(filters?: FilterOptions): Promise<PaginatedResponse<MerchantAd>> {
-    const response: AxiosResponse<PaginatedResponse<MerchantAd>> = await this.api.get('/merchants/ads', {
-      params: filters,
-    });
-    return response.data;
+    const response = await this.api.get('/merchants/ads', { params: filters });
+    const body: any = response.data;
+    const ads: MerchantAd[] = Array.isArray(body) ? body : body?.data ?? [];
+    const p = Array.isArray(body) ? undefined : body?.pagination;
+    return {
+      data: ads,
+      pagination: p
+        ? { total: p.total, page: p.page, limit: p.limit }
+        : { total: ads.length, page: 1, limit: ads.length },
+    };
   }
 
 
@@ -668,13 +675,13 @@ class ApiService {
   // Partner Schema Fee Management - Aligned with Backend
   async getPartnerSchemaFees(filters?: FilterOptions): Promise<PaginatedResponse<any>> {
     const response = await this.api.get('/partner-schema-fees', { params: filters });
+    const data = response.data?.data || [];
+    const p = response.data?.pagination;
     return {
-      data: response.data.data || [],
-      pagination: {
-        total: response.data.data?.length || 0,
-        page: 1,
-        limit: response.data.data?.length || 0
-      }
+      data,
+      pagination: p
+        ? { total: p.total, page: p.page, limit: p.limit }
+        : { total: data.length, page: 1, limit: data.length },
     };
   }
 
@@ -701,13 +708,13 @@ class ApiService {
   // Business Schema Fee Management - Aligned with Backend
   async getBusinessSchemaFees(filters?: FilterOptions): Promise<PaginatedResponse<any>> {
     const response = await this.api.get('/business-schema-fees', { params: filters });
+    const data = response.data?.data || [];
+    const p = response.data?.pagination;
     return {
-      data: response.data.data || [],
-      pagination: {
-        total: response.data.data?.length || 0,
-        page: 1,
-        limit: response.data.data?.length || 0
-      }
+      data,
+      pagination: p
+        ? { total: p.total, page: p.page, limit: p.limit }
+        : { total: data.length, page: 1, limit: data.length },
     };
   }
 
