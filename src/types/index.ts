@@ -1,19 +1,28 @@
 // User and Authentication Types
 export interface User {
-  id: number | string; // API returns integer, but we'll handle both
-  username?: string; // API uses username, not name
-  name?: string; // For compatibility
+  id: number | string;
+  username?: string;
+  name?: string;
   email?: string;
   roles?: string[];
-  role: UserRole; // Primary role for compatibility
+  role: UserRole;
   status?: UserStatus;
-  tid?: string; // Tenant ID from API
+  tid?: string;
+  // V2 entity bindings — populated when role is 'publisher' or
+  // 'venue_partner' respectively. Empty string for other roles.
+  publisher_id?: string;
+  venue_partner_id?: string;
   created_at?: string;
   updated_at?: string;
   last_login?: string;
 }
 
-export type UserRole = 'admin' | 'partner' | 'merchant';
+export type UserRole =
+  | 'admin'
+  | 'partner'
+  | 'merchant'
+  | 'publisher'
+  | 'venue_partner';
 export type UserStatus = 'active' | 'inactive' | 'pending' | 'suspended';
 
 export interface LoginRequest {
@@ -62,6 +71,12 @@ export interface Device {
   device_id: string;
   device_secret?: string;
   merchant_id: string;
+  // V2 binding. Empty / missing for legacy devices.
+  outlet_id?: string;
+  // V2 venue ownership — populated when the device is registered via
+  // /partner/devices/register. Used by the admin assign-to-outlet
+  // picker to restrict choices to outlets of the owning venue.
+  venue_partner_id?: string;
   status: 'active' | 'inactive' | 'maintenance' | 'offline';
   device_type: 'tablet' | 'phone' | 'tv' | 'kiosk';
   location?: {
@@ -325,6 +340,8 @@ export interface Advertisement {
 
 export interface CreateAdvertisementRequest {
   partner_id?: string; // Optional - will be detected from bearer token
+  /** V2 — set by publisher role; the brand this creative is for. */
+  advertiser_id?: string;
   title?: string; // Advertisement title
   content?: string; // URL to the content (image/video)
   type?: string; // Content type (image, video, etc.)
@@ -444,6 +461,8 @@ export interface RegistrationRequest {
   password: string;
   role: UserRole;
   tid?: string;
+  publisher_id?: string;
+  venue_partner_id?: string;
 }
 
 export interface AuthRequest {
@@ -926,4 +945,294 @@ export interface DeviceActivity {
   description: string;
   timestamp: string;
   metadata?: Record<string, any>;
+}
+
+// =====================================================================
+// V2 marketplace entities — see gb-admin/docs/PRD.md §4.
+// Additive; existing Partner / Merchant types are kept for back-compat.
+// =====================================================================
+
+export type VenuePartnerStatus = 'ACTIVE' | 'SUSPENDED' | 'CHURNED';
+export type VenuePartnerTier = 'NATIONAL' | 'REGIONAL' | 'SINGLE';
+
+export interface VenuePartnerApiKeyResult {
+  venue_partner_id: string;
+  /** Plaintext key — returned once on rotate; persist nowhere. */
+  api_key: string;
+  api_key_prefix: string;
+  api_key_set_at: string;
+  /** Hint for the partner: HTTP Basic auth username = venue_partner_id. */
+  username: string;
+}
+
+export interface VenuePartner {
+  id: string;
+  legal_name: string;
+  display_name: string;
+  npwp: string;
+  pkp_registered: boolean;
+  billing_address?: string;
+  bank_name: string;
+  bank_account_no: string;
+  bank_account_owner: string;
+  /** First 12 chars of the issued API key (e.g. "gbx_abc12345"); empty if none. */
+  api_key_prefix?: string;
+  api_key_set_at?: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone_wa: string;
+  default_revenue_share_pct: number;
+  tier: VenuePartnerTier;
+  status: VenuePartnerStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  /** Populated by GET /v2/venue-partners list endpoint. */
+  outlet_count?: number;
+}
+
+export type OutletStatus = 'ACTIVE' | 'PAUSED' | 'DECOMMISSIONED';
+
+export type OutletType =
+  | 'MALL'
+  | 'CONVENIENCE_STORE'
+  | 'FNB'
+  | 'TRANSIT'
+  | 'OFFICE'
+  | 'KOST'
+  | 'HOSPITAL'
+  | 'GYM'
+  | 'SALON'
+  | 'EDUCATION'
+  | 'GOVERNMENT'
+  | 'OTHER';
+
+export interface Outlet {
+  id: string;
+  venue_partner_id: string;
+  display_name: string;
+  address: string;
+  city: string;
+  province: string;
+  country: string;
+  postal_code: string;
+  latitude: number;
+  longitude: number;
+  timezone: string;
+  outlet_type: OutletType;
+  halal_only: boolean;
+  /** CSV. Empty = no restriction. */
+  permitted_categories: string;
+  /** CSV. Examples: "TOBACCO,ALCOHOL,POLITICAL". */
+  blocked_categories: string;
+  /** Format: "mon=08:00-22:00,tue=...". Empty = 24/7. */
+  operating_hours: string;
+  /** NULL = inherit venue partner default. */
+  revenue_share_pct_override?: number | null;
+  status: OutletStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Publisher (seller side of the marketplace) ────────────────────────
+
+export type PublisherStatus = 'ACTIVE' | 'SUSPENDED' | 'CHURNED';
+export type PublisherKind = 'AGENCY' | 'BRAND_DIRECT' | 'RESELLER' | 'HOUSE';
+export type PublisherTier = 'STRATEGIC' | 'STANDARD' | 'SELF_SERVE';
+
+export interface Publisher {
+  id: string;
+  legal_name: string;
+  display_name: string;
+  npwp: string;
+  pkp_registered: boolean;
+  billing_address?: string;
+  bank_name: string;
+  bank_account_no: string;
+  bank_account_owner: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone_wa: string;
+  /** Publisher's cut of gross billable for inventory they bring (e.g. 15%). */
+  default_commission_pct: number;
+  kind: PublisherKind;
+  tier: PublisherTier;
+  status: PublisherStatus;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  /** Populated by GET /v2/publishers list endpoint. */
+  advertiser_count?: number;
+}
+
+// ── Advertiser (the brand whose ad runs) ──────────────────────────────
+
+export type AdvertiserStatus = 'ACTIVE' | 'PAUSED' | 'BLACKLISTED';
+
+export type AdvertiserCategory =
+  | 'FOOD' | 'BEVERAGE' | 'RETAIL' | 'BEAUTY' | 'FASHION'
+  | 'TECHNOLOGY' | 'AUTOMOTIVE' | 'HEALTHCARE' | 'FINANCE'
+  | 'EDUCATION' | 'TRAVEL' | 'ENTERTAINMENT' | 'SPORTS'
+  | 'REAL_ESTATE' | 'TELCO' | 'GOVERNMENT'
+  | 'POLITICAL' | 'TOBACCO' | 'ALCOHOL' | 'GAMBLING'
+  | 'OTHER';
+
+export interface Advertiser {
+  id: string;
+  publisher_id: string;
+  legal_name: string;
+  display_name: string;
+  logo_url: string;
+  npwp: string;
+  billing_address?: string;
+  contact_name: string;
+  contact_email: string;
+  contact_phone_wa: string;
+  category: AdvertiserCategory;
+  status: AdvertiserStatus;
+  /** TRUE for tobacco/alcohol/political/gambling — booking enforces against per-Outlet blocks. */
+  requires_regulated_slot: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Settlements + Payments (V2 money layer) ───────────────────────────
+
+export type SettlementStakeholderType = 'VENUE' | 'PUBLISHER';
+export type SettlementStatus = 'DRAFT' | 'LOCKED' | 'PAID' | 'VOID';
+export type PaymentMethod = 'BANK_TRANSFER' | 'VA' | 'CASH' | 'OTHER';
+
+export interface Settlement {
+  id: string;
+  source_id: string;
+  period_start: string; // YYYY-MM-DD
+  period_end: string;
+  stakeholder_type: SettlementStakeholderType;
+  stakeholder_id: string;
+  source_venue_partner_id: string;
+  source_publisher_id: string;
+  source_gross_idr: number;
+  split_pct: number;
+  amount_idr: number;
+  pph23_idr: number;
+  net_idr: number;
+  status: SettlementStatus;
+  payment_id: string;
+  notes?: string;
+  created_by: string;
+  locked_by: string;
+  locked_at?: string | null;
+  paid_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Returned by POST /v2/settlements/entries — preview of the waterfall. */
+export interface CreateEntryResult {
+  source_id: string;
+  venue_pct: number;
+  publisher_pct: number;
+  platform_pct: number;
+  platform_idr: number;
+  settlements: Settlement[];
+}
+
+export interface Payment {
+  id: string;
+  stakeholder_type: SettlementStakeholderType;
+  stakeholder_id: string;
+  amount_idr: number;
+  method: PaymentMethod;
+  reference: string;
+  paid_at: string;
+  recorded_by: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Per-role dashboard payloads. The backend auto-scopes by JWT claims, so
+// admin-only callers may pass an override id via query string; other
+// roles ignore the override.
+export interface PublisherDashboard {
+  publisher_id: string;
+  advertisers_total: number;
+  approvals_pending: number;
+  approvals_approved: number;
+  approvals_rejected: number;
+  settlements_draft: number;
+  settlements_locked: number;
+  settlements_paid: number;
+  pending_payout_idr: number;
+  paid_this_month_idr: number;
+  recent_settlements: Settlement[];
+}
+
+// V2 ad-approval (booking) types
+//
+// One row per (advertisement × venue_partner). Approval is venue-wide:
+// once a venue approves an ad, it plays on every outlet of that venue
+// during the ad's own published_time window.
+
+export type AdApprovalStatus =
+  | 'PROPOSED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REVOKED';
+
+export interface AdApproval {
+  id: string;
+  advertisement_id: string;
+  venue_partner_id: string;
+  status: AdApprovalStatus;
+  requested_by: string;
+  decided_by: string;
+  decided_at?: string;
+  reject_reason?: string;
+  revoked_by: string;
+  revoked_at?: string;
+  revoked_reason?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubmitAdApprovalRequest {
+  advertisement_id: string;
+  venue_partner_ids: string[];
+  notes?: string;
+}
+
+export interface SubmitAdApprovalResult {
+  created: AdApproval[];
+  skipped: { venue_partner_id: string; reason: string }[];
+}
+
+export interface PlaylistAd {
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+  duration: number;
+  state: string;
+  approval_id: string;
+  venue_partner_id: string;
+}
+
+export interface VenuePartnerDashboard {
+  venue_partner_id: string;
+  outlets_total: number;
+  outlets_active: number;
+  devices_total: number;
+  devices_active: number;
+  approvals_pending: number;
+  approvals_approved: number;
+  settlements_draft: number;
+  settlements_locked: number;
+  settlements_paid: number;
+  pending_payout_idr: number;
+  paid_this_month_idr: number;
+  recent_settlements: Settlement[];
 }

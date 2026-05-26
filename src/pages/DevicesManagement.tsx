@@ -28,12 +28,8 @@ import {
   Tooltip,
   InputAdornment,
   Grid,
-  Card,
-  CardContent,
   Tabs,
   Tab,
-  Switch,
-  FormControlLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -43,11 +39,11 @@ import {
   Refresh as RefreshIcon,
   Visibility as ViewIcon,
   LocationOn as LocationIcon,
-  Info as InfoIcon,
-  Download as DownloadIcon,
   GetApp as ExportIcon,
+  Store as StoreIcon,
+  LinkOff as LinkOffIcon,
 } from '@mui/icons-material';
-import { DeviceResponse, Merchant, FilterOptions } from '../types';
+import { DeviceResponse, Merchant, FilterOptions, Outlet } from '../types';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -67,7 +63,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const DevicesManagement: React.FC = () => {
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [devices, setDevices] = useState<DeviceResponse[]>([]);
@@ -116,6 +112,13 @@ const DevicesManagement: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deviceToDelete, setDeviceToDelete] = useState<DeviceResponse | null>(null);
 
+  // Outlet assignment dialog (V2)
+  const [outletDialogOpen, setOutletDialogOpen] = useState(false);
+  const [outletDialogDevice, setOutletDialogDevice] = useState<DeviceResponse | null>(null);
+  const [outletPickerId, setOutletPickerId] = useState('');
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
+  const [outletsLoading, setOutletsLoading] = useState(false);
+
   useEffect(() => {
     loadDevices();
   }, [page, rowsPerPage, searchTerm, statusFilter, merchantFilter, deviceTypeFilter]);
@@ -144,8 +147,17 @@ const DevicesManagement: React.FC = () => {
         filters.merchant_id = merchantFilter;
       }
 
-      const response = await apiService.getDevices(filters);
-      setDevices(response.data);
+      // Venue partner role: use the V2 venue-scoped endpoint so the
+      // list only contains devices on outlets of their own venue.
+      // Falls back to the unscoped list if the JWT somehow lacks the
+      // claim (shouldn't happen — middleware sets it).
+      let response;
+      if (hasRole('venue_partner') && user?.venue_partner_id) {
+        response = await apiService.listDevicesByVenuePartner(user.venue_partner_id, filters);
+      } else {
+        response = await apiService.getDevices(filters);
+      }
+      setDevices(response.data as any);
       setTotalCount(response.pagination.total);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load devices');
@@ -288,6 +300,61 @@ const DevicesManagement: React.FC = () => {
   const handleDeleteDevice = (device: DeviceResponse) => {
     setDeviceToDelete(device);
     setDeleteDialogOpen(true);
+  };
+
+  // ----- V2 outlet assignment -----
+
+  // Load outlets scoped to the device's owning venue when possible.
+  // Falls back to the unscoped list for legacy devices that have no
+  // venue_partner_id (e.g. ones created before the partner integration
+  // existed).
+  const loadOutletsFor = async (device: DeviceResponse) => {
+    setOutletsLoading(true);
+    try {
+      const params: { limit: number; venue_partner_id?: string } = { limit: 500 };
+      if (device.venue_partner_id) {
+        params.venue_partner_id = device.venue_partner_id;
+      }
+      const res = await apiService.listOutlets(params);
+      setOutlets(res.data);
+    } catch {
+      // non-fatal: dialog will show empty list and let the user retry
+    } finally {
+      setOutletsLoading(false);
+    }
+  };
+
+  const handleOpenAssignOutlet = (device: DeviceResponse) => {
+    setOutletDialogDevice(device);
+    setOutletPickerId(device.outlet_id || '');
+    setOutletDialogOpen(true);
+    // Always re-fetch — different devices may belong to different venues.
+    setOutlets([]);
+    loadOutletsFor(device);
+  };
+
+  const handleConfirmAssignOutlet = async () => {
+    if (!outletDialogDevice || !outletPickerId) return;
+    try {
+      await apiService.assignDeviceToOutlet(outletDialogDevice.id, outletPickerId);
+      setOutletDialogOpen(false);
+      setOutletDialogDevice(null);
+      setOutletPickerId('');
+      setSuccess('Device assigned to outlet');
+      await loadDevices();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to assign device to outlet');
+    }
+  };
+
+  const handleUnassignOutlet = async (device: DeviceResponse) => {
+    try {
+      await apiService.unassignDeviceFromOutlet(device.id);
+      setSuccess('Device unassigned from outlet');
+      await loadDevices();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to unassign device');
+    }
   };
 
   const validateForm = () => {
@@ -590,6 +657,18 @@ const DevicesManagement: React.FC = () => {
                       </Tooltip>
                       {hasRole('admin') && (
                         <>
+                          <Tooltip title={device.outlet_id ? 'Reassign Outlet' : 'Assign to Outlet'}>
+                            <IconButton size="small" onClick={() => handleOpenAssignOutlet(device)}>
+                              <StoreIcon />
+                            </IconButton>
+                          </Tooltip>
+                          {device.outlet_id && (
+                            <Tooltip title="Unassign Outlet">
+                              <IconButton size="small" onClick={() => handleUnassignOutlet(device)}>
+                                <LinkOffIcon />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           <Tooltip title="Edit Device">
                             <IconButton
                               size="small"
@@ -867,6 +946,62 @@ const DevicesManagement: React.FC = () => {
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
           <Button onClick={confirmDelete} color="error" variant="contained">
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Assign to Outlet Dialog (V2) */}
+      <Dialog
+        open={outletDialogOpen}
+        onClose={() => setOutletDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {outletDialogDevice?.outlet_id ? 'Reassign Outlet' : 'Assign Device to Outlet'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
+              Device:{' '}
+              <strong>
+                {(outletDialogDevice as any)?.device_name || outletDialogDevice?.name}
+              </strong>{' '}
+              ({outletDialogDevice?.device_id})
+            </Typography>
+            {outletDialogDevice?.venue_partner_id ? (
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                Outlets below are filtered to the device's owning venue partner.
+              </Typography>
+            ) : (
+              <Typography variant="caption" color="warning.main" sx={{ mb: 2, display: 'block' }}>
+                Legacy device — no owning venue. All outlets shown; pick carefully.
+              </Typography>
+            )}
+            <FormControl fullWidth required disabled={outletsLoading}>
+              <InputLabel>Outlet</InputLabel>
+              <Select
+                value={outletPickerId}
+                label="Outlet"
+                onChange={(e) => setOutletPickerId(e.target.value as string)}
+              >
+                {outlets.map((o) => (
+                  <MenuItem key={o.id} value={o.id}>
+                    {o.display_name} {o.city ? `— ${o.city}` : ''}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOutletDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleConfirmAssignOutlet}
+            variant="contained"
+            disabled={!outletPickerId}
+          >
+            {outletDialogDevice?.outlet_id ? 'Reassign' : 'Assign'}
           </Button>
         </DialogActions>
       </Dialog>

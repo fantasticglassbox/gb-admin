@@ -5,6 +5,8 @@ export interface JWTPayload {
   role: string;
   exp: number;
   device_id?: string;
+  publisher_id?: string;
+  venue_partner_id?: string;
 }
 
 /**

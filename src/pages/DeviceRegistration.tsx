@@ -40,7 +40,6 @@ import {
   Assignment as AssignIcon,
   Refresh as RefreshIcon,
   Info as InfoIcon,
-  CheckCircle as ActiveIcon,
   Schedule as RegisteredIcon,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';

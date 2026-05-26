@@ -26,6 +26,15 @@ import AlignedPartnerSchemaFeeManagement from './pages/AlignedPartnerSchemaFeeMa
 import AlignedBusinessSchemaFeeManagement from './pages/AlignedBusinessSchemaFeeManagement';
 import DeviceRegistration from './pages/DeviceRegistration';
 import DemographyDashboard from './pages/DemographyDashboard';
+import VenuePartnersManagement from './pages/VenuePartnersManagement';
+import PublishersManagement from './pages/PublishersManagement';
+import SettlementsManagement from './pages/SettlementsManagement';
+import PublisherDashboard from './pages/PublisherDashboard';
+import VenuePartnerDashboard from './pages/VenuePartnerDashboard';
+import AdApprovalsManagement from './pages/AdApprovalsManagement';
+import IntegrationsManagement from './pages/IntegrationsManagement';
+import VenueOutletsPage from './pages/VenueOutletsPage';
+import PublisherAdvertisersPage from './pages/PublisherAdvertisersPage';
 
 function App() {
   return (
@@ -59,6 +68,9 @@ function App() {
               <Route path="users" element={<UsersManagement />} />
               <Route path="partners" element={<PartnersManagement />} />
               <Route path="merchants" element={<MerchantsManagement />} />
+              <Route path="venue-partners" element={<VenuePartnersManagement />} />
+              <Route path="publishers" element={<PublishersManagement />} />
+              <Route path="settlements" element={<SettlementsManagement />} />
               <Route path="devices" element={<DevicesManagement />} />
               <Route path="devices/:deviceId" element={<DeviceDetail />} />
               <Route path="advertisements" element={<AdvertisementsManagement />} />
@@ -69,6 +81,8 @@ function App() {
               <Route path="detailed-revenue" element={<DetailedRevenueReport />} />
               <Route path="device-registration" element={<DeviceRegistration />} />
               <Route path="demography" element={<DemographyDashboard />} />
+              <Route path="approvals" element={<AdApprovalsManagement />} />
+              <Route path="integrations" element={<IntegrationsManagement />} />
             </Route>
 
             <Route 
@@ -85,8 +99,8 @@ function App() {
               <Route path="advertisements" element={<AdvertisementsManagement />} />
             </Route>
 
-            <Route 
-              path="/merchant/*" 
+            <Route
+              path="/merchant/*"
               element={
                 <ProtectedRoute allowedRoles={['merchant']}>
                   <ElegantLayout />
@@ -94,8 +108,39 @@ function App() {
               }
             >
               <Route index element={<RealMerchantDashboard />} />
-              <Route path="detailed-revenue" element={<DetailedRevenueReport />} />
               <Route path="advertisements" element={<AdvertisementsManagement />} />
+            </Route>
+
+            {/* V2: Publisher self-serve */}
+            <Route
+              path="/publisher/*"
+              element={
+                <ProtectedRoute allowedRoles={['publisher']}>
+                  <ElegantLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<PublisherDashboard />} />
+              <Route path="advertisers" element={<PublisherAdvertisersPage />} />
+              <Route path="advertisements" element={<AdvertisementsManagement />} />
+              <Route path="approvals" element={<AdApprovalsManagement />} />
+              <Route path="settlements" element={<SettlementsManagement />} />
+            </Route>
+
+            {/* V2: Venue Partner self-serve */}
+            <Route
+              path="/venue/*"
+              element={
+                <ProtectedRoute allowedRoles={['venue_partner']}>
+                  <ElegantLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<VenuePartnerDashboard />} />
+              <Route path="outlets" element={<VenueOutletsPage />} />
+              <Route path="devices" element={<DevicesManagement />} />
+              <Route path="approvals" element={<AdApprovalsManagement />} />
+              <Route path="settlements" element={<SettlementsManagement />} />
             </Route>
 
             {/* Default redirect - redirect authenticated users to their dashboard */}

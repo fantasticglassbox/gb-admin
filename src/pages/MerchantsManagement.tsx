@@ -112,6 +112,7 @@ const MerchantsManagement: React.FC = () => {
 
   useEffect(() => {
     loadMerchants();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, rowsPerPage, searchTerm, statusFilter]);
 
   useEffect(() => {

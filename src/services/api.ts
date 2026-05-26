@@ -24,43 +24,61 @@ import {
   RevenueFilters,
   TransactionStats,
   MerchantAd,
+  VenuePartner,
+  VenuePartnerApiKeyResult,
+  Outlet,
+  Publisher,
+  Advertiser,
+  Settlement,
+  Payment,
+  CreateEntryResult,
+  PaymentMethod,
+  PublisherDashboard,
+  VenuePartnerDashboard,
+  AdApproval,
+  AdApprovalStatus,
+  SubmitAdApprovalRequest,
+  SubmitAdApprovalResult,
+  PlaylistAd,
 } from '../types';
 
 class ApiService {
   private api: AxiosInstance;
+  /** V2 surface — same host, same auth, different base path. */
+  private apiV2: AxiosInstance;
 
   constructor() {
+    const root = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
     this.api = axios.create({
-      baseURL: `${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000'}/v1`,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      baseURL: `${root}/v1`,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    this.apiV2 = axios.create({
+      baseURL: `${root}/v2`,
+      headers: { 'Content-Type': 'application/json' },
     });
 
-    // Request interceptor to add auth token
-    this.api.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // Response interceptor to handle auth errors
-    this.api.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user_data');
-          window.location.href = '/login';
-        }
-        return Promise.reject(error);
+    // Share auth interceptor across both v1 and v2 — same token, same 401
+    // recovery. Future migration to refresh-token flow flips here once.
+    const attachAuth = (config: any) => {
+      const token = localStorage.getItem('auth_token');
+      if (token) config.headers.Authorization = `Bearer ${token}`;
+      return config;
+    };
+    const handleResponse = (response: any) => response;
+    const handleAuthError = (error: any) => {
+      if (error.response?.status === 401) {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_data');
+        window.location.href = '/login';
       }
-    );
+      return Promise.reject(error);
+    };
+
+    this.api.interceptors.request.use(attachAuth, (e) => Promise.reject(e));
+    this.api.interceptors.response.use(handleResponse, handleAuthError);
+    this.apiV2.interceptors.request.use(attachAuth, (e) => Promise.reject(e));
+    this.apiV2.interceptors.response.use(handleResponse, handleAuthError);
   }
 
   // Generic GET method for flexibility
@@ -152,6 +170,8 @@ class ApiService {
     password: string;
     role: string;
     tid?: string;
+    publisher_id?: string;
+    venue_partner_id?: string;
   }): Promise<User> {
     const response: AxiosResponse<User> = await this.api.post('/user', userData);
     return response.data;
@@ -787,6 +807,424 @@ class ApiService {
     }
   }
 
+  // =====================================================================
+  // V2: Venue Partners & Outlets
+  // =====================================================================
+  //
+  // Backend: /v2/venue-partners + /v2/outlets (see gb-core/handler/v2/).
+  // Response envelope on list: { data: [...], pagination: { page, limit, total } }
+  // Response envelope on single: { data: { ... } }
+
+  async listVenuePartners(filters?: FilterOptions & { tier?: string }): Promise<PaginatedResponse<VenuePartner>> {
+    const response = await this.apiV2.get('/venue-partners', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async getVenuePartner(id: string): Promise<VenuePartner> {
+    const response = await this.apiV2.get(`/venue-partners/${id}`);
+    return response.data?.data ?? response.data;
+  }
+
+  async createVenuePartner(payload: Partial<VenuePartner>): Promise<VenuePartner> {
+    const response = await this.apiV2.post('/venue-partners', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async updateVenuePartner(id: string, payload: Partial<VenuePartner>): Promise<VenuePartner> {
+    const response = await this.apiV2.put(`/venue-partners/${id}`, payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async deleteVenuePartner(id: string): Promise<void> {
+    await this.apiV2.delete(`/venue-partners/${id}`);
+  }
+
+  /**
+   * Issues (or rotates) the partner-integration API key for a venue.
+   * Plaintext key is in the response — show it to the admin once and
+   * never persist it. Subsequent fetches only return the prefix.
+   */
+  async rotateVenuePartnerApiKey(id: string): Promise<VenuePartnerApiKeyResult> {
+    const response = await this.apiV2.post(`/venue-partners/${id}/api-key`);
+    return response.data?.data ?? response.data;
+  }
+
+  /**
+   * Revokes the partner-integration API key (clears the hash without
+   * issuing a new one). Idempotent — no-ops if there's no key.
+   */
+  async revokeVenuePartnerApiKey(id: string): Promise<void> {
+    await this.apiV2.delete(`/venue-partners/${id}/api-key`);
+  }
+
+  async listOutlets(
+    filters?: FilterOptions & {
+      venue_partner_id?: string;
+      city?: string;
+      outlet_type?: string;
+      halal_only?: boolean;
+    },
+  ): Promise<PaginatedResponse<Outlet>> {
+    const response = await this.apiV2.get('/outlets', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  /** Convenience: outlets scoped to one VenuePartner. */
+  async listOutletsForVenuePartner(
+    venuePartnerId: string,
+    filters?: FilterOptions,
+  ): Promise<PaginatedResponse<Outlet>> {
+    const response = await this.apiV2.get(
+      `/venue-partners/${venuePartnerId}/outlets`,
+      { params: filters },
+    );
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async getOutlet(id: string): Promise<Outlet> {
+    const response = await this.apiV2.get(`/outlets/${id}`);
+    return response.data?.data ?? response.data;
+  }
+
+  async createOutlet(payload: Partial<Outlet>): Promise<Outlet> {
+    const response = await this.apiV2.post('/outlets', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async updateOutlet(id: string, payload: Partial<Outlet>): Promise<Outlet> {
+    const response = await this.apiV2.put(`/outlets/${id}`, payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async deleteOutlet(id: string): Promise<void> {
+    await this.apiV2.delete(`/outlets/${id}`);
+  }
+
+  // ---------- V2: Device ↔ Outlet binding ----------
+
+  async assignDeviceToOutlet(deviceId: string, outletId: string): Promise<void> {
+    await this.apiV2.post(`/devices/${deviceId}/assign-outlet`, { outlet_id: outletId });
+  }
+
+  async unassignDeviceFromOutlet(deviceId: string): Promise<void> {
+    await this.apiV2.post(`/devices/${deviceId}/unassign-outlet`);
+  }
+
+  async listUnassignedDevices(filters?: FilterOptions): Promise<PaginatedResponse<Device>> {
+    const response = await this.apiV2.get('/devices/unassigned', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async listDevicesByOutlet(
+    outletId: string,
+    filters?: FilterOptions & { status?: string },
+  ): Promise<PaginatedResponse<Device>> {
+    const response = await this.apiV2.get(`/outlets/${outletId}/devices`, { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async listDevicesByVenuePartner(
+    venuePartnerId: string,
+    filters?: FilterOptions,
+  ): Promise<PaginatedResponse<Device>> {
+    const response = await this.apiV2.get(`/venue-partners/${venuePartnerId}/devices`, {
+      params: filters,
+    });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  // =====================================================================
+  // V2: Publishers & Advertisers
+  // =====================================================================
+
+  async listPublishers(
+    filters?: FilterOptions & { kind?: string; tier?: string },
+  ): Promise<PaginatedResponse<Publisher>> {
+    const response = await this.apiV2.get('/publishers', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async getPublisher(id: string): Promise<Publisher> {
+    const response = await this.apiV2.get(`/publishers/${id}`);
+    return response.data?.data ?? response.data;
+  }
+
+  async createPublisher(payload: Partial<Publisher>): Promise<Publisher> {
+    const response = await this.apiV2.post('/publishers', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async updatePublisher(id: string, payload: Partial<Publisher>): Promise<Publisher> {
+    const response = await this.apiV2.put(`/publishers/${id}`, payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async deletePublisher(id: string): Promise<void> {
+    await this.apiV2.delete(`/publishers/${id}`);
+  }
+
+  // Naming note: `listAdvertisersV2` etc. — there's no existing
+  // `listAdvertisers` in this file, but V1 already has `getAdvertisements`
+  // (different concept — that's the ad creative). The V2 suffix keeps it
+  // unambiguous to future readers.
+  async listAdvertisersV2(
+    filters?: FilterOptions & {
+      publisher_id?: string;
+      category?: string;
+      requires_regulated_slot?: boolean;
+    },
+  ): Promise<PaginatedResponse<Advertiser>> {
+    const response = await this.apiV2.get('/advertisers', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async listAdvertisersForPublisher(
+    publisherId: string,
+    filters?: FilterOptions,
+  ): Promise<PaginatedResponse<Advertiser>> {
+    const response = await this.apiV2.get(
+      `/publishers/${publisherId}/advertisers`,
+      { params: filters },
+    );
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async getAdvertiserV2(id: string): Promise<Advertiser> {
+    const response = await this.apiV2.get(`/advertisers/${id}`);
+    return response.data?.data ?? response.data;
+  }
+
+  async createAdvertiserV2(payload: Partial<Advertiser>): Promise<Advertiser> {
+    const response = await this.apiV2.post('/advertisers', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async updateAdvertiserV2(id: string, payload: Partial<Advertiser>): Promise<Advertiser> {
+    const response = await this.apiV2.put(`/advertisers/${id}`, payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async deleteAdvertiserV2(id: string): Promise<void> {
+    await this.apiV2.delete(`/advertisers/${id}`);
+  }
+
+  // =====================================================================
+  // V2: Settlements + Payments (money waterfall)
+  // =====================================================================
+
+  /**
+   * Create a revenue entry. Backend computes the waterfall (venue + publisher
+   * cuts + PPh23 withholding + platform keep) and persists Settlement rows.
+   * Returns the preview block so the UI can show the split before refresh.
+   */
+  async createSettlementEntry(payload: {
+    venue_partner_id: string;
+    publisher_id: string;
+    period_start: string; // YYYY-MM-DD
+    period_end: string;
+    gross_idr: number;
+    notes?: string;
+    venue_pct_override?: number | null;
+    publisher_pct_override?: number | null;
+  }): Promise<CreateEntryResult> {
+    const response = await this.apiV2.post('/settlements/entries', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async listSettlements(
+    filters?: FilterOptions & {
+      stakeholder_type?: string;
+      stakeholder_id?: string;
+      venue_partner_id?: string;
+      publisher_id?: string;
+      status?: string;
+      source_id?: string;
+      period_start_gte?: string; // YYYY-MM-DD
+      period_end_lte?: string;
+    },
+  ): Promise<PaginatedResponse<Settlement>> {
+    const response = await this.apiV2.get('/settlements', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async getSettlementV2(id: string): Promise<Settlement> {
+    const response = await this.apiV2.get(`/settlements/${id}`);
+    return response.data?.data ?? response.data;
+  }
+
+  /** Returns all settlements created from the same revenue entry (venue + publisher rows). */
+  async getSettlementsBySource(sourceId: string): Promise<Settlement[]> {
+    const response = await this.apiV2.get(`/settlements/source/${sourceId}`);
+    return response.data?.data ?? [];
+  }
+
+  async lockSettlement(id: string): Promise<void> {
+    await this.apiV2.post(`/settlements/${id}/lock`);
+  }
+
+  async voidSettlement(id: string): Promise<void> {
+    await this.apiV2.post(`/settlements/${id}/void`);
+  }
+
+  /** Records a Payment and marks N settlements PAID atomically. */
+  async markSettlementsPaid(payload: {
+    settlement_ids: string[];
+    method?: PaymentMethod;
+    reference?: string;
+    paid_at?: string; // ISO datetime
+    notes?: string;
+  }): Promise<Payment> {
+    const response = await this.apiV2.post('/settlements/mark-paid', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async listPayments(
+    filters?: FilterOptions & {
+      stakeholder_type?: string;
+      stakeholder_id?: string;
+      reference?: string;
+      paid_at_gte?: string;
+      paid_at_lte?: string;
+    },
+  ): Promise<PaginatedResponse<Payment>> {
+    const response = await this.apiV2.get('/payments', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  // ---------- V2: Per-role dashboards ----------
+
+  async getPublisherDashboard(publisherId?: string): Promise<PublisherDashboard> {
+    const response = await this.apiV2.get('/dashboards/publisher', {
+      params: publisherId ? { publisher_id: publisherId } : undefined,
+    });
+    return response.data?.data ?? response.data;
+  }
+
+  async getVenuePartnerDashboard(venuePartnerId?: string): Promise<VenuePartnerDashboard> {
+    const response = await this.apiV2.get('/dashboards/venue-partner', {
+      params: venuePartnerId ? { venue_partner_id: venuePartnerId } : undefined,
+    });
+    return response.data?.data ?? response.data;
+  }
+
+  // ---------- V2: Ad approvals (booking flow) ----------
+  //
+  // One AdApproval row per (advertisement × venue_partner). Publisher
+  // submits one ad to N venues at once; each venue approves/rejects
+  // independently; either side can revoke an APPROVED row.
+
+  async listAdApprovals(
+    filters?: FilterOptions & {
+      status?: AdApprovalStatus | string;
+      advertisement_id?: string;
+      publisher_id?: string;
+      venue_partner_id?: string;
+    },
+  ): Promise<PaginatedResponse<AdApproval>> {
+    const response = await this.apiV2.get('/ad-approvals', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async getAdApproval(id: string): Promise<AdApproval> {
+    const response = await this.apiV2.get(`/ad-approvals/${id}`);
+    return response.data?.data ?? response.data;
+  }
+
+  async submitAdApprovals(payload: SubmitAdApprovalRequest): Promise<SubmitAdApprovalResult> {
+    const response = await this.apiV2.post('/ad-approvals/submit', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async approveAdApproval(id: string): Promise<void> {
+    await this.apiV2.post(`/ad-approvals/${id}/approve`);
+  }
+
+  async rejectAdApproval(id: string, reason: string): Promise<void> {
+    await this.apiV2.post(`/ad-approvals/${id}/reject`, { reason });
+  }
+
+  async revokeAdApproval(id: string, reason?: string): Promise<void> {
+    await this.apiV2.post(`/ad-approvals/${id}/revoke`, { reason: reason || '' });
+  }
+
+  /**
+   * V2 paginated, role-scoped ad list. Use this (not the V1
+   * /advertisements/list) anywhere a publisher needs to see only their
+   * own ads — the backend forces publisher_id from the JWT claim.
+   * `state` filter: 'DRAFT' | 'PUBLISHED' | 'REJECTED' | 'INACTIVE'.
+   */
+  async listAdvertisementsV2(
+    filters?: FilterOptions & {
+      state?: 'DRAFT' | 'PUBLISHED' | 'REJECTED' | 'INACTIVE' | string;
+      advertiser_id?: string;
+      publisher_id?: string; // admin override only
+    },
+  ): Promise<PaginatedResponse<Advertisement>> {
+    const response = await this.apiV2.get('/advertisements', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  // Device playlist endpoint stays the same path (/v2/devices/:id/playlist)
+  // and is registered by the partner package as well; the response shape
+  // changed (placement_* fields → approval_id + venue_partner_id).
+  async getDevicePlaylist(deviceId: string, at?: string): Promise<PlaylistAd[]> {
+    const response = await this.apiV2.get(`/devices/${deviceId}/playlist`, {
+      params: at ? { at } : undefined,
+    });
+    return response.data?.data || [];
+  }
 }
 
 export const apiService = new ApiService();

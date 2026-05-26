@@ -44,11 +44,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // If user is authenticated and trying to access login page or root, redirect to dashboard
   if (isAuthenticated && (location.pathname === '/login' || location.pathname === '/')) {
-    const dashboardPath = user?.role === 'admin' 
-      ? '/admin' 
-      : user?.role === 'partner' 
-        ? '/partner' 
-        : '/merchant';
+    const dashboardPath = (() => {
+      switch (user?.role) {
+        case 'admin':
+          return '/admin';
+        case 'partner':
+          return '/partner';
+        case 'publisher':
+          return '/publisher';
+        case 'venue_partner':
+          return '/venue';
+        case 'merchant':
+        default:
+          return '/merchant';
+      }
+    })();
     return <Navigate to={dashboardPath} replace />;
   }
 

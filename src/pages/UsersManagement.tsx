@@ -36,7 +36,7 @@ import {
   Refresh as RefreshIcon,
   Person as PersonIcon,
 } from '@mui/icons-material';
-import { User, UserRole, UserStatus, FilterOptions } from '../types';
+import { User, UserRole, UserStatus, FilterOptions, Publisher, VenuePartner } from '../types';
 import { apiService } from '../services/api';
 
 const UsersManagement: React.FC = () => {
@@ -60,9 +60,18 @@ const UsersManagement: React.FC = () => {
     password: '',
     role: 'merchant' as UserRole,
     tid: '',
+    publisher_id: '',
+    venue_partner_id: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Entity dropdowns for publisher / venue_partner roles. Loaded once
+  // when the dialog opens for one of those roles; cheap enough that we
+  // don't paginate (CMS expects <100 of each at MVP scale).
+  const [publishers, setPublishers] = useState<Publisher[]>([]);
+  const [venuePartners, setVenuePartners] = useState<VenuePartner[]>([]);
+  const [entitiesLoading, setEntitiesLoading] = useState(false);
 
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -109,6 +118,23 @@ const UsersManagement: React.FC = () => {
     setPage(0);
   };
 
+  const ensureEntitiesLoaded = useCallback(async () => {
+    if (publishers.length > 0 && venuePartners.length > 0) return;
+    setEntitiesLoading(true);
+    try {
+      const [pubs, vps] = await Promise.all([
+        apiService.listPublishers({ limit: 200 }),
+        apiService.listVenuePartners({ limit: 200 }),
+      ]);
+      setPublishers(pubs.data);
+      setVenuePartners(vps.data);
+    } catch {
+      // Non-fatal — the user can still pick admin/partner/merchant.
+    } finally {
+      setEntitiesLoading(false);
+    }
+  }, [publishers.length, venuePartners.length]);
+
   const handleCreateUser = () => {
     setDialogMode('create');
     setSelectedUser(null);
@@ -117,9 +143,12 @@ const UsersManagement: React.FC = () => {
       password: '',
       role: 'merchant',
       tid: '',
+      publisher_id: '',
+      venue_partner_id: '',
     });
     setFormErrors({});
     setDialogOpen(true);
+    ensureEntitiesLoaded();
   };
 
   const handleEditUser = (user: User) => {
@@ -127,12 +156,15 @@ const UsersManagement: React.FC = () => {
     setSelectedUser(user);
     setFormData({
       username: user.username || user.name || '',
-      password: '', // Don't populate password for edit
+      password: '',
       role: user.role,
-      tid: '', // TID is not shown in user object
+      tid: user.tid || '',
+      publisher_id: user.publisher_id || '',
+      venue_partner_id: user.venue_partner_id || '',
     });
     setFormErrors({});
     setDialogOpen(true);
+    ensureEntitiesLoaded();
   };
 
   const handleDeleteUser = (user: User) => {
@@ -155,6 +187,21 @@ const UsersManagement: React.FC = () => {
       errors.password = 'Password must be at least 6 characters';
     }
 
+    // Per-role entity-FK validation. Mirrors backend ValidateEntityBinding
+    // so we fail fast in the UI instead of round-tripping for the error.
+    switch (formData.role) {
+      case 'publisher':
+        if (!formData.publisher_id) errors.publisher_id = 'Publisher is required';
+        break;
+      case 'venue_partner':
+        if (!formData.venue_partner_id) errors.venue_partner_id = 'Venue partner is required';
+        break;
+      case 'partner':
+      case 'merchant':
+        if (!formData.tid) errors.tid = 'TID is required for this role';
+        break;
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -171,6 +218,8 @@ const UsersManagement: React.FC = () => {
           password: formData.password,
           role: formData.role,
           tid: formData.tid || undefined,
+          publisher_id: formData.publisher_id || undefined,
+          venue_partner_id: formData.venue_partner_id || undefined,
         });
       } else if (selectedUser) {
         const updateData: any = {
@@ -220,6 +269,10 @@ const UsersManagement: React.FC = () => {
         return 'primary';
       case 'merchant':
         return 'secondary';
+      case 'publisher':
+        return 'info';
+      case 'venue_partner':
+        return 'warning';
       default:
         return 'default';
     }
@@ -467,22 +520,85 @@ const UsersManagement: React.FC = () => {
               <Select
                 value={formData.role}
                 label="Role"
-                onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
+                onChange={(e) => {
+                  const role = e.target.value as UserRole;
+                  // Clear entity fields that don't apply to the new role
+                  // so a stale value can't slip through the binding check.
+                  setFormData({
+                    ...formData,
+                    role,
+                    tid: role === 'partner' || role === 'merchant' ? formData.tid : '',
+                    publisher_id: role === 'publisher' ? formData.publisher_id : '',
+                    venue_partner_id: role === 'venue_partner' ? formData.venue_partner_id : '',
+                  });
+                }}
               >
                 <MenuItem value="admin">Admin</MenuItem>
-                <MenuItem value="partner">Partner</MenuItem>
-                <MenuItem value="merchant">Merchant</MenuItem>
+                <MenuItem value="publisher">Publisher</MenuItem>
+                <MenuItem value="venue_partner">Venue Partner</MenuItem>
+                <MenuItem value="partner">Partner (legacy)</MenuItem>
+                <MenuItem value="merchant">Merchant (legacy)</MenuItem>
               </Select>
             </FormControl>
 
-            <TextField
-              fullWidth
-              label="TID (Optional)"
-              value={formData.tid}
-              onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
-              margin="normal"
-              helperText="Tenant ID for multi-tenant setup"
-            />
+            {formData.role === 'publisher' && (
+              <FormControl fullWidth margin="normal" required error={!!formErrors.publisher_id}>
+                <InputLabel>Publisher</InputLabel>
+                <Select
+                  value={formData.publisher_id}
+                  label="Publisher"
+                  onChange={(e) => setFormData({ ...formData, publisher_id: e.target.value as string })}
+                  disabled={entitiesLoading}
+                >
+                  {publishers.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>
+                      {p.display_name || p.legal_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {formErrors.publisher_id && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                    {formErrors.publisher_id}
+                  </Typography>
+                )}
+              </FormControl>
+            )}
+
+            {formData.role === 'venue_partner' && (
+              <FormControl fullWidth margin="normal" required error={!!formErrors.venue_partner_id}>
+                <InputLabel>Venue Partner</InputLabel>
+                <Select
+                  value={formData.venue_partner_id}
+                  label="Venue Partner"
+                  onChange={(e) => setFormData({ ...formData, venue_partner_id: e.target.value as string })}
+                  disabled={entitiesLoading}
+                >
+                  {venuePartners.map((v) => (
+                    <MenuItem key={v.id} value={v.id}>
+                      {v.display_name || v.legal_name}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {formErrors.venue_partner_id && (
+                  <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                    {formErrors.venue_partner_id}
+                  </Typography>
+                )}
+              </FormControl>
+            )}
+
+            {(formData.role === 'partner' || formData.role === 'merchant') && (
+              <TextField
+                fullWidth
+                label="TID"
+                value={formData.tid}
+                onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
+                margin="normal"
+                required
+                error={!!formErrors.tid}
+                helperText={formErrors.tid || `Existing ${formData.role} ID this user logs in as`}
+              />
+            )}
           </Box>
         </DialogContent>
         <DialogActions>

@@ -88,19 +88,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (token && userData) {
         try {
           const user = JSON.parse(userData);
-          
-          // If user doesn't have tid, try to extract it from the token
-          if (!user.tid) {
-            const tokenPayload = decodeJWT(token);
-            if (tokenPayload?.tid) {
+
+          // Backfill any claims missing from cached user_data (publisher_id
+          // / venue_partner_id were added in V2 — older sessions won't have
+          // them stored yet, but the JWT does).
+          const tokenPayload = decodeJWT(token);
+          let mutated = false;
+          if (tokenPayload) {
+            if (!user.tid && tokenPayload.tid) {
               user.tid = tokenPayload.tid;
-              // Update stored user data with tid
-              localStorage.setItem('user_data', JSON.stringify(user));
+              mutated = true;
+            }
+            if (user.publisher_id === undefined && tokenPayload.publisher_id !== undefined) {
+              user.publisher_id = tokenPayload.publisher_id;
+              mutated = true;
+            }
+            if (user.venue_partner_id === undefined && tokenPayload.venue_partner_id !== undefined) {
+              user.venue_partner_id = tokenPayload.venue_partner_id;
+              mutated = true;
             }
           }
-          
-          // Restore user session without API validation
-          // Token validation will happen on first API call
+          if (mutated) {
+            localStorage.setItem('user_data', JSON.stringify(user));
+          }
+
           dispatch({ type: 'LOGIN_SUCCESS', payload: user });
         } catch (error) {
           // Invalid stored data, clear storage
@@ -125,13 +136,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Decode JWT token to extract tid and role
       const tokenPayload = decodeJWT(response.access_token);
       
-      // Transform account to user format with tid from JWT
+      // Transform account to user format with claims from JWT.
       const user: User = {
         id: response.account.id,
         name: response.account.name,
         roles: response.account.roles,
-        role: response.account.roles[0] as UserRole, // Use first role as primary
-        tid: tokenPayload?.tid, // Extract tid from JWT token
+        role: response.account.roles[0] as UserRole,
+        tid: tokenPayload?.tid,
+        publisher_id: tokenPayload?.publisher_id,
+        venue_partner_id: tokenPayload?.venue_partner_id,
       };
       
       // Store token and user data

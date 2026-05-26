@@ -49,6 +49,7 @@ import {
   Language as LanguageIcon,
   AppRegistration as RegistrationIcon,
   Public as DemographyIcon,
+  VpnKey as IntegrationsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types';
@@ -77,11 +78,41 @@ const getNavigationSections = (t: any): NavigationSection[] => [
         text: t('dashboard'),
         icon: <DashboardIcon />,
         path: '',
-        roles: ['admin', 'partner', 'merchant'],
+        roles: ['admin', 'partner', 'merchant', 'publisher', 'venue_partner'],
       },
     ]
   },
-  
+
+  // Content & Campaign Management Section — pulled up to second position
+  // because the day-to-day CMS work happens here (ads, approvals).
+  {
+    title: t('contentCampaigns'),
+    items: [
+      {
+        text: t('advertisementsManagement'),
+        icon: <CampaignIcon />,
+        path: 'advertisements',
+        roles: ['admin', 'partner', 'merchant', 'publisher'],
+      },
+      {
+        // V2 booking flow. One adaptive page mounted at /<role>/approvals:
+        //   admin       → all approvals across the platform
+        //   publisher   → "My Submissions" (own ads + statuses per venue)
+        //   venue_partner → "Approval Queue" (incoming PROPOSED rows)
+        text: 'Ad Approvals',
+        icon: <CampaignIcon />,
+        path: 'approvals',
+        roles: ['admin', 'publisher'],
+      },
+      {
+        text: 'Approval Queue',
+        icon: <CampaignIcon />,
+        path: 'approvals',
+        roles: ['venue_partner'],
+      },
+    ]
+  },
+
   // Entity Management Section
   {
     title: t('entityManagement'),
@@ -92,17 +123,40 @@ const getNavigationSections = (t: any): NavigationSection[] => [
         path: 'users',
         roles: ['admin'],
       },
+      // Legacy V1 "Partners" and "Merchants" nav items are hidden from
+      // the sidebar in May 2026 — replaced by V2 Publishers + Venue
+      // Partners below. The routes are kept mounted in App.tsx so any
+      // bookmarks still work; just no nav entry points to them.
       {
-        text: t('partnersManagement'),
-        icon: <BusinessIcon />,
-        path: 'partners',
+        // V2 entity — venue chains (landlord side) with nested outlets.
+        text: 'Venue Partners',
+        icon: <StoreIcon />,
+        path: 'venue-partners',
         roles: ['admin'],
       },
       {
-        text: t('merchantsManagement'),
-        icon: <StoreIcon />,
-        path: 'merchants',
+        // V2 entity — publisher (seller side) with nested advertisers.
+        // Sits next to Partners; once V2 supersedes V1, the legacy
+        // Partners entry can retire.
+        text: 'Publishers',
+        icon: <BusinessIcon />,
+        path: 'publishers',
         roles: ['admin'],
+      },
+      {
+        // Scoped self-serve view for publisher role — same master/detail
+        // page, but the backend filters to the user's own publisher_id.
+        text: 'Advertisers',
+        icon: <BusinessIcon />,
+        path: 'advertisers',
+        roles: ['publisher'],
+      },
+      {
+        // Scoped self-serve view for venue_partner role.
+        text: 'Outlets',
+        icon: <StoreIcon />,
+        path: 'outlets',
+        roles: ['venue_partner'],
       },
     ]
   },
@@ -115,7 +169,7 @@ const getNavigationSections = (t: any): NavigationSection[] => [
         text: t('devicesManagement'),
         icon: <DeviceIcon />,
         path: 'devices',
-        roles: ['admin', 'partner'],
+        roles: ['admin', 'partner', 'venue_partner'],
       },
       {
         text: t('deviceRegistration'),
@@ -132,57 +186,35 @@ const getNavigationSections = (t: any): NavigationSection[] => [
     ]
   },
 
-  // Content & Campaign Management Section
-  {
-    title: t('contentCampaigns'),
-    items: [
-      {
-        text: t('advertisementsManagement'),
-        icon: <CampaignIcon />,
-        path: 'advertisements',
-        roles: ['admin', 'partner', 'merchant'],
-      },
-      {
-        text: t('assetsManagement'),
-        icon: <AssetsIcon />,
-        path: 'assets',
-        roles: ['admin'],
-      },
-    ]
-  },
-
-  // Financial Management Section
+  // Financial Management Section. Legacy fee/revenue items
+  // (partnerFees, businessFees, revenueGeneration, detailedRevenueReport,
+  // assetsManagement) were removed from the sidebar in May 2026 — the
+  // V2 Settlements page is now the only money surface.
   {
     title: t('financialManagement'),
     items: [
       {
-        text: t('revenue'),
-        icon: <FeeSchemaIcon />,
-        path: 'detailed-revenue',
-        roles: ['merchant'],
-      },
-      {
-        text: t('partnerFees'),
-        icon: <FeeSchemaIcon />,
-        path: 'partner-fees',
-        roles: ['admin'],
-      },
-      {
-        text: t('businessFees'),
+        // V2 — manual revenue entries + waterfall splits + payment tracking.
+        // Publisher/venue_partner see only their own rows (backend-scoped);
+        // admin sees the full platform.
+        text: 'Settlements',
         icon: <ReceiptIcon />,
-        path: 'business-fees',
-        roles: ['admin'],
+        path: 'settlements',
+        roles: ['admin', 'publisher', 'venue_partner'],
       },
+    ]
+  },
+
+  // Integrations Section. Partner-integration API keys per venue
+  // partner. Lives as its own section (admin-only) so key ops have a
+  // dedicated home and don't get buried in the venue partner CRUD page.
+  {
+    title: 'Integrations',
+    items: [
       {
-        text: t('revenueGeneration'),
-        icon: <CalculateIcon />,
-        path: 'revenue-generation',
-        roles: ['admin'],
-      },
-      {
-        text: t('detailedRevenueReport'),
-        icon: <AssessmentIcon />,
-        path: 'detailed-revenue',
+        text: 'API Keys',
+        icon: <IntegrationsIcon />,
+        path: 'integrations',
         roles: ['admin'],
       },
     ]
@@ -222,7 +254,7 @@ const ElegantLayout: React.FC = () => {
 
   const getBasePath = () => {
     const pathSegments = location.pathname.split('/');
-    return pathSegments[1]; // 'admin', 'partner', or 'merchant'
+    return pathSegments[1]; // 'admin' | 'partner' | 'merchant' | 'publisher' | 'venue'
   };
 
   const getCurrentPath = () => {

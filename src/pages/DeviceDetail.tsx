@@ -35,11 +35,6 @@ import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
   Visibility as ViewIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  PlayArrow as PlayIcon,
-  Pause as PauseIcon,
-  Stop as StopIcon,
 } from '@mui/icons-material';
 import { DeviceResponse, Merchant, ActiveAdvertisement } from '../types';
 import { apiService } from '../services/api';
@@ -74,6 +69,7 @@ const DeviceDetail: React.FC = () => {
   console.log('DeviceDetail component loaded with deviceId:', deviceId); // Debug log
   
   const [device, setDevice] = useState<DeviceResponse | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [deviceMerchant, setDeviceMerchant] = useState<Merchant | null>(null);
   const [activeAds, setActiveAds] = useState<ActiveAdvertisement[]>([]);
@@ -164,6 +160,7 @@ const DeviceDetail: React.FC = () => {
       loadDeviceMerchant();
       loadActiveAds();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
   const formatDate = (dateString: string): string => {

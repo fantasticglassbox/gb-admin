@@ -52,7 +52,7 @@ import {
   Cancel,
   Pause,
 } from '@mui/icons-material';
-import { Advertisement, CreateAdvertisementRequest, Partner, Merchant, FilterOptions, AssignAds } from '../types';
+import { Advertisement, CreateAdvertisementRequest, Partner, Merchant, FilterOptions, AssignAds, Advertiser } from '../types';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -61,6 +61,10 @@ const AdvertisementsManagement: React.FC = () => {
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
+  // V2 — advertisers (brands) owned by this publisher. Loaded only
+  // when the user is a publisher; populates the per-ad "Advertiser"
+  // picker required by the V2 create/update endpoints.
+  const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,6 +114,10 @@ const AdvertisementsManagement: React.FC = () => {
     loadMerchants();
     loadPartners();
     loadCategories();
+    if (hasRole('publisher')) {
+      loadAdvertisers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadData = async () => {
@@ -142,6 +150,15 @@ const AdvertisementsManagement: React.FC = () => {
           console.warn('Failed to load merchant advertisements:', err);
           allAds = [];
         }
+      } else if (hasRole('publisher')) {
+        // Publishers: Use the V2 list which auto-scopes by publisher_id
+        // from the JWT and supports the state filter.
+        const response = await apiService.listAdvertisementsV2({
+          page: page + 1,
+          limit: rowsPerPage,
+          search: searchTerm || undefined,
+        });
+        allAds = response.data;
       } else {
         // Admin & Partner: Use general advertisements list endpoint
         // Backend automatically filters by tid (partner_id for partners, all ads for admin)
@@ -223,6 +240,18 @@ const AdvertisementsManagement: React.FC = () => {
       setPartners(response.data);
     } catch (err: any) {
       console.error('Failed to load partners:', err);
+    }
+  };
+
+  // Publisher-only: load the brands this publisher owns so the
+  // create/edit form can require an advertiser_id selection. Backend
+  // auto-scopes by publisher_id from the JWT.
+  const loadAdvertisers = async () => {
+    try {
+      const response = await apiService.listAdvertisersV2({ limit: 200 });
+      setAdvertisers(response.data);
+    } catch (err: any) {
+      console.error('Failed to load advertisers:', err);
     }
   };
 
@@ -430,6 +459,11 @@ const AdvertisementsManagement: React.FC = () => {
       errors.title = 'Advertisement title is required';
     }
 
+    // Publishers must pick which of their advertisers (brands) this
+    // creative belongs to — required by the V2 ownership model.
+    if (hasRole('publisher') && !((formData as any).advertiser_id)) {
+      errors.advertiser_id = 'Advertiser is required';
+    }
 
     if (!formData.published_time_start) {
       errors.published_time_start = 'Publication start date is required';
@@ -758,7 +792,7 @@ const AdvertisementsManagement: React.FC = () => {
               />
 
               {/* Partner field - only show in view and edit modes, not in create mode */}
-              {viewMode !== 'create' && selectedAd && (
+              {viewMode !== 'create' && selectedAd && !hasRole('publisher') && (
                 <FormControl fullWidth margin="normal">
                   <InputLabel>Partner</InputLabel>
                   <Select
@@ -777,6 +811,36 @@ const AdvertisementsManagement: React.FC = () => {
                   </Select>
                   <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
                     Partner is automatically detected and cannot be changed
+                  </Typography>
+                </FormControl>
+              )}
+
+              {/* Publisher path: required Advertiser (brand) picker. */}
+              {hasRole('publisher') && (
+                <FormControl fullWidth margin="normal" required error={!!formErrors.advertiser_id}>
+                  <InputLabel>Advertiser (brand)</InputLabel>
+                  <Select
+                    value={(formData as any).advertiser_id || ''}
+                    label="Advertiser (brand)"
+                    onChange={(e) =>
+                      setFormData({ ...formData, advertiser_id: e.target.value as string } as any)
+                    }
+                    disabled={(viewMode as string) === 'view'}
+                  >
+                    {advertisers.length === 0 ? (
+                      <MenuItem disabled value="">
+                        No advertisers yet — create one in the Advertisers page first
+                      </MenuItem>
+                    ) : (
+                      advertisers.map((a) => (
+                        <MenuItem key={a.id} value={a.id}>
+                          {a.display_name} — {a.category}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                  <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                    Which brand this creative is for. Cannot be changed after creation.
                   </Typography>
                 </FormControl>
               )}
@@ -1407,7 +1471,7 @@ const AdvertisementsManagement: React.FC = () => {
         <Typography variant="h4" component="h1">
           Advertisements Management
         </Typography>
-        {hasRole('partner') ? (
+        {(hasRole('partner') || hasRole('publisher') || hasRole('admin')) && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -1415,7 +1479,7 @@ const AdvertisementsManagement: React.FC = () => {
           >
             Create Advertisement
           </Button>
-        ) : null}
+        )}
       </Box>
 
       {error && (
@@ -1719,7 +1783,7 @@ const AdvertisementsManagement: React.FC = () => {
                   >
                     View
                   </Button>
-                  {hasRole('partner') && (
+                  {(hasRole('partner') || hasRole('publisher') || hasRole('admin')) && (
                     <Button
                       size="small"
                       variant="outlined"
@@ -1854,7 +1918,7 @@ const AdvertisementsManagement: React.FC = () => {
                         </IconButton>
                       </Tooltip>
                       
-                      {hasRole('partner') && (
+                      {(hasRole('partner') || hasRole('publisher') || hasRole('admin')) && (
                         <Tooltip title="Edit Advertisement">
                           <IconButton
                             size="small"

@@ -99,7 +99,12 @@ const CityDeploymentMap: React.FC<CityDeploymentMapProps> = ({
   const theme = useTheme();
   const [mapCenter, setMapCenter] = useState<[number, number]>([-6.2088, 106.8456]);
   const [showHeatCircles, setShowHeatCircles] = useState(true);
+  // selectedCity is set on marker click for future side-panel work; setter is
+  // referenced but value isn't rendered yet. Keep state to avoid prop-drill
+  // later. setMapZoom is reserved for upcoming zoom-control wiring.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedCity, setSelectedCity] = useState<CityDeployment | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [mapZoom, setMapZoom] = useState(6);
 
   // Process city deployments

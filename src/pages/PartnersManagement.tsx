@@ -31,7 +31,6 @@ import {
   CardContent,
   Tabs,
   Tab,
-  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -41,8 +40,6 @@ import {
   Refresh as RefreshIcon,
   Business as BusinessIcon,
   Visibility as ViewIcon,
-  People as PeopleIcon,
-  Campaign as CampaignIcon,
 } from '@mui/icons-material';
 import { PartnerResponse, FilterOptions, Merchant, AdvertisementResponse } from '../types';
 import { apiService } from '../services/api';
