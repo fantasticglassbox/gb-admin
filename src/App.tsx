@@ -35,6 +35,8 @@ import AdApprovalsManagement from './pages/AdApprovalsManagement';
 import IntegrationsManagement from './pages/IntegrationsManagement';
 import VenueOutletsPage from './pages/VenueOutletsPage';
 import PublisherAdvertisersPage from './pages/PublisherAdvertisersPage';
+import PublisherAnalyticsPage from './pages/PublisherAnalyticsPage';
+import VenuePartnerAnalyticsPage from './pages/VenuePartnerAnalyticsPage';
 
 function App() {
   return (
@@ -125,6 +127,7 @@ function App() {
               <Route path="advertisements" element={<AdvertisementsManagement />} />
               <Route path="approvals" element={<AdApprovalsManagement />} />
               <Route path="settlements" element={<SettlementsManagement />} />
+              <Route path="analytics" element={<PublisherAnalyticsPage />} />
             </Route>
 
             {/* V2: Venue Partner self-serve */}
@@ -141,6 +144,7 @@ function App() {
               <Route path="devices" element={<DevicesManagement />} />
               <Route path="approvals" element={<AdApprovalsManagement />} />
               <Route path="settlements" element={<SettlementsManagement />} />
+              <Route path="analytics" element={<VenuePartnerAnalyticsPage />} />
             </Route>
 
             {/* Default redirect - redirect authenticated users to their dashboard */}

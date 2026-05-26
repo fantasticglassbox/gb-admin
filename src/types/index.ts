@@ -1170,6 +1170,75 @@ export interface PublisherDashboard {
   recent_settlements: Settlement[];
 }
 
+// V2 analytics types (per-role aggregate metrics).
+//
+// Most fields are simple counts/sums. `playback` returns zeros until
+// gb-media starts pushing PlaybackEvents — the UI should show an
+// empty-state for those panels rather than rendering 0-valued charts.
+
+export interface ApprovalFunnel {
+  proposed: number;
+  approved: number;
+  rejected: number;
+  revoked: number;
+}
+
+export interface WeeklyPoint {
+  week_start: string; // ISO date for the Monday
+  count: number;
+}
+
+export interface MonthlyMoney {
+  month: string; // "2026-04"
+  amount_idr: number;
+}
+
+export interface TopCount {
+  id: string;
+  label: string;
+  count: number;
+}
+
+export interface PlaybackSummary {
+  total_events: number;
+  completed: number;
+  partial: number;
+  errored: number;
+  skipped: number;
+  distinct_devices: number;
+  distinct_ads: number;
+}
+
+export interface PublisherAnalytics {
+  publisher_id: string;
+  window_days: number;
+  approvals_funnel: ApprovalFunnel;
+  approvals_weekly: WeeklyPoint[];
+  settlement_monthly: MonthlyMoney[];
+  top_venues: TopCount[];
+  top_advertisers: TopCount[];
+  playback: PlaybackSummary;
+}
+
+export interface VenueFleet {
+  devices_total: number;
+  devices_active: number;
+  devices_registered: number;
+  outlets_total: number;
+  outlets_active: number;
+}
+
+export interface VenuePartnerAnalytics {
+  venue_partner_id: string;
+  window_days: number;
+  fleet: VenueFleet;
+  approvals_funnel: ApprovalFunnel;
+  approvals_weekly: WeeklyPoint[];
+  settlement_monthly: MonthlyMoney[];
+  top_advertisers: TopCount[];
+  playback: PlaybackSummary;
+}
+
 // V2 ad-approval (booking) types
 //
 // One row per (advertisement × venue_partner). Approval is venue-wide:

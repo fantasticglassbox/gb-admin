@@ -35,6 +35,8 @@ import {
   PaymentMethod,
   PublisherDashboard,
   VenuePartnerDashboard,
+  PublisherAnalytics,
+  VenuePartnerAnalytics,
   AdApproval,
   AdApprovalStatus,
   SubmitAdApprovalRequest,
@@ -1148,6 +1150,29 @@ class ApiService {
     const response = await this.apiV2.get('/dashboards/venue-partner', {
       params: venuePartnerId ? { venue_partner_id: venuePartnerId } : undefined,
     });
+    return response.data?.data ?? response.data;
+  }
+
+  // ---------- V2: Per-role analytics ----------
+  //
+  // Backend forces scope from JWT claims; admins can pass an override
+  // id and a window of 7/30/90 days. Playback panels return zeros until
+  // gb-media starts pushing PlaybackEvents — UIs should render an
+  // empty-state for those rather than 0-valued charts.
+
+  async getPublisherAnalytics(opts?: {
+    publisher_id?: string;
+    days?: number;
+  }): Promise<PublisherAnalytics> {
+    const response = await this.apiV2.get('/analytics/publisher', { params: opts });
+    return response.data?.data ?? response.data;
+  }
+
+  async getVenuePartnerAnalytics(opts?: {
+    venue_partner_id?: string;
+    days?: number;
+  }): Promise<VenuePartnerAnalytics> {
+    const response = await this.apiV2.get('/analytics/venue-partner', { params: opts });
     return response.data?.data ?? response.data;
   }
 

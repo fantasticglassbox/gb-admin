@@ -50,6 +50,7 @@ import {
   AppRegistration as RegistrationIcon,
   Public as DemographyIcon,
   VpnKey as IntegrationsIcon,
+  Insights as AnalyticsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types';
@@ -79,6 +80,16 @@ const getNavigationSections = (t: any): NavigationSection[] => [
         icon: <DashboardIcon />,
         path: '',
         roles: ['admin', 'partner', 'merchant', 'publisher', 'venue_partner'],
+      },
+      {
+        // V2 — per-role analytics (publisher: approval funnel, top
+        // venues/brands, settlement trend; venue: fleet status, queue
+        // trend, top advertisers, settlement trend). Playback panels
+        // show empty-state until devices start reporting.
+        text: 'Analytics',
+        icon: <AnalyticsIcon />,
+        path: 'analytics',
+        roles: ['publisher', 'venue_partner'],
       },
     ]
   },
