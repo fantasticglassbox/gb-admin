@@ -50,6 +50,7 @@ import {
   CampaignAsset,
   CampaignApproval,
   CampaignApprovalStatus,
+  CampaignPlaybackResponse,
   CampaignState,
   CreateCampaignRequest,
   UpdateCampaignRequest,
@@ -1450,6 +1451,19 @@ class ApiService {
     await this.apiV2.post(`/campaign-approvals/${id}/revoke`, {
       reason: reason || '',
     });
+  }
+
+  /**
+   * Per-campaign proof-of-play roll-up. Auto-scoped from the JWT —
+   * publishers see their own campaigns only, venue partners see
+   * playback that happened at their devices. Pass `from`/`to` as
+   * RFC3339; default window is the last 30 days.
+   */
+  async getCampaignPlayback(
+    params?: { from?: string; to?: string; publisher_id?: string; venue_partner_id?: string },
+  ): Promise<CampaignPlaybackResponse> {
+    const response = await this.apiV2.get('/analytics/campaign-playback', { params });
+    return response.data;
   }
 }
 

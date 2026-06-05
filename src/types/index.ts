@@ -1413,6 +1413,30 @@ export interface ApprovalSummary {
   revoked: number;
 }
 
+/** Per-campaign proof-of-play roll-up returned by
+ *  GET /v2/analytics/campaign-playback. Values are summed across the
+ *  requested time range (default last 30 days) from playback_aggregates.
+ *  Impressions = `complete_count` only — a partial render doesn't bill
+ *  as an impression. */
+export interface CampaignPlaybackRow {
+  campaign_id: string;
+  campaign_title: string;
+  complete_count: number;
+  partial_count: number;
+  error_count: number;
+  skipped_count: number;
+  total_played_ms: number;
+  total_expected_ms: number;
+  device_count: number;
+  venue_count: number;
+}
+
+export interface CampaignPlaybackResponse {
+  data: CampaignPlaybackRow[];
+  from: string;
+  to: string;
+}
+
 export interface Campaign {
   id: string;
   publisher_id?: string;

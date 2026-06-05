@@ -36,6 +36,7 @@ import {
 } from 'recharts';
 import { apiService } from '../services/api';
 import { VenuePartnerAnalytics } from '../types';
+import CampaignPlaybackCard from '../components/CampaignPlaybackCard';
 import { formatCurrencyDetailed } from '../utils/formatters';
 
 const fmtShort = (n: number) =>
@@ -288,6 +289,13 @@ const VenuePartnerAnalyticsPage: React.FC = () => {
               </Table>
             )}
           </Paper>
+        </Grid>
+
+        {/* V2 per-campaign proof-of-play scoped to this venue. Auto-
+            scoped by the JWT in the analytics endpoint — same component
+            on both publisher + venue pages. */}
+        <Grid item xs={12}>
+          <CampaignPlaybackCard />
         </Grid>
       </Grid>
     </Box>

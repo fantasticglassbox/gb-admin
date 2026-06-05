@@ -34,6 +34,7 @@ import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import { Html5Qrcode } from 'html5-qrcode';
 import apiService from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { Outlet } from '../types';
 
 interface Props {
@@ -60,11 +61,18 @@ const PairDeviceByScan: React.FC<Props> = ({
   venuePartnerId,
   onPaired,
 }) => {
+  const { user } = useAuth();
+  // Fall back to the auth session if the parent didn't pass the prop —
+  // belt and suspenders for venue partner users where the parent might
+  // not have it wired through. Admins must explicitly pass it.
+  const effectiveVenueId = venuePartnerId || user?.venue_partner_id || '';
+
   const [mode, setMode] = useState<'scan' | 'manual'>('scan');
   const [code, setCode] = useState('');
   const [deviceName, setDeviceName] = useState('');
   const [outletId, setOutletId] = useState('');
   const [outlets, setOutlets] = useState<Outlet[]>([]);
+  const [outletsLoading, setOutletsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -86,37 +94,83 @@ const PairDeviceByScan: React.FC<Props> = ({
   // Load outlets for the chosen venue (every open — cached at the API
   // layer would be nice but this is fine for ~10s of outlets).
   useEffect(() => {
-    if (!open || !venuePartnerId) return;
+    if (!open) return;
+    if (!effectiveVenueId) {
+      setError(
+        'Your account is not linked to a venue. Ask an admin to attach ' +
+          'your user to a venue partner before pairing devices.',
+      );
+      return;
+    }
     let cancelled = false;
+    setOutletsLoading(true);
     apiService
-      .listOutletsForVenuePartner(venuePartnerId, { limit: 200 })
+      .listOutletsForVenuePartner(effectiveVenueId, { limit: 200 })
       .then((r) => {
         if (cancelled) return;
-        setOutlets(r.data || []);
-        if (r.data?.length === 1) setOutletId(r.data[0].id);
+        const list = r.data || [];
+        setOutlets(list);
+        if (list.length === 1) setOutletId(list[0].id);
       })
-      .catch((e) =>
-        setError(e?.response?.data?.error || 'Failed to load outlets'),
-      );
+      .catch((e) => {
+        if (cancelled) return;
+        // Surface enough detail to diagnose — the venue partner can
+        // forward this to support and we'll know if it's a 4xx vs 5xx.
+        const detail =
+          e?.response?.data?.error ||
+          e?.message ||
+          'unknown error';
+        const status = e?.response?.status;
+        setError(
+          `Couldn't load your outlets (${
+            status ? `HTTP ${status}: ` : ''
+          }${detail}). Try reloading the page.`,
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setOutletsLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [open, venuePartnerId]);
+  }, [open, effectiveVenueId]);
 
   // ---- camera lifecycle ----
 
   useEffect(() => {
     if (!open || mode !== 'scan') return;
 
+    // Pre-flight check: getUserMedia only works on secure origins
+    // (https:// or localhost). If we're served over plain http on a
+    // non-localhost host, the camera will silently fail — surface the
+    // exact reason so the user can move to https or use Type code.
+    if (!isSecureContextOk()) {
+      setError(
+        'Camera access requires HTTPS. This page is loaded over an ' +
+          "insecure connection (http://) so the browser won't let us " +
+          'open the camera. Either deploy the admin UI to an HTTPS host ' +
+          '(Vercel, your domain) or use the "Type code" mode below.',
+      );
+      return;
+    }
+
     let cancelled = false;
     const start = async () => {
       try {
+        // The Drawer needs one frame to actually mount its contents in
+        // the DOM. Without this, getElementById can return null when
+        // start() runs synchronously on open.
+        await new Promise((r) => setTimeout(r, 50));
+        if (cancelled) return;
         const el = document.getElementById(QR_REGION_ID);
-        if (!el) return;
+        if (!el) {
+          setError('Scanner could not bind to its container — try toggling the drawer.');
+          return;
+        }
         const scanner = new Html5Qrcode(QR_REGION_ID);
         scannerRef.current = scanner;
         // Prefer the rear-facing camera on mobile; fall back silently
-        // if the platform refuses.
+        // if the platform refuses (desktop, single front cam, etc).
         await scanner.start(
           { facingMode: 'environment' },
           { fps: 10, qrbox: { width: 240, height: 240 } },
@@ -127,8 +181,6 @@ const PairDeviceByScan: React.FC<Props> = ({
             if (parsed) {
               setCode(parsed);
               setInfo(`Scanned code ${formatCode(parsed)} — pick an outlet, then Pair.`);
-              // We don't auto-stop the camera so the user can correct
-              // and re-scan. The submit handler stops it.
               scanningRef.current = false;
             } else {
               setError(
@@ -142,10 +194,7 @@ const PairDeviceByScan: React.FC<Props> = ({
           },
         );
       } catch (e: any) {
-        setError(
-          e?.message ||
-            'Could not start camera. Switch to Type code instead.',
-        );
+        setError(friendlyCameraError(e));
       }
     };
     start();
@@ -178,7 +227,7 @@ const PairDeviceByScan: React.FC<Props> = ({
     setInfo(null);
     try {
       const res = await apiService.pairDevice(code, {
-        venue_partner_id: venuePartnerId,
+        venue_partner_id: effectiveVenueId,
         outlet_id: outletId || undefined,
         device_name: deviceName || undefined,
       });
@@ -327,11 +376,23 @@ const PairDeviceByScan: React.FC<Props> = ({
           <Divider sx={{ my: 3 }} />
 
           <Stack spacing={2}>
-            <FormControl fullWidth>
-              <InputLabel>Outlet</InputLabel>
+            <FormControl fullWidth disabled={outletsLoading || outlets.length === 0}>
+              <InputLabel>
+                {outletsLoading
+                  ? 'Loading outlets…'
+                  : outlets.length === 0
+                  ? 'No outlets available'
+                  : `Outlet (${outlets.length} available)`}
+              </InputLabel>
               <Select
                 value={outletId}
-                label="Outlet"
+                label={
+                  outletsLoading
+                    ? 'Loading outlets…'
+                    : outlets.length === 0
+                    ? 'No outlets available'
+                    : `Outlet (${outlets.length} available)`
+                }
                 onChange={(e) => setOutletId(e.target.value as string)}
               >
                 {outlets.map((o) => (
@@ -342,6 +403,12 @@ const PairDeviceByScan: React.FC<Props> = ({
                 ))}
               </Select>
             </FormControl>
+            {!outletsLoading && outlets.length === 0 && effectiveVenueId && !error && (
+              <Alert severity="warning">
+                Your venue has no outlets yet. Create one in <strong>Outlets</strong>
+                {' '}first — a device has to live somewhere before it can play.
+              </Alert>
+            )}
             <TextField
               label="Device name (optional)"
               fullWidth
@@ -401,6 +468,53 @@ const formatCode = (code: string): string => {
   const clean = code.replace(/[-\s]/g, '').toUpperCase();
   if (clean.length !== 6) return clean;
   return `${clean.slice(0, 3)}-${clean.slice(3)}`;
+};
+
+/** Browsers refuse getUserMedia on plain http unless the host is
+ *  `localhost` / `127.0.0.1`. Detect both possible flags — modern
+ *  browsers expose `window.isSecureContext`, older ones (and some
+ *  in-app webviews) don't. */
+const isSecureContextOk = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  if ((window as any).isSecureContext === true) return true;
+  const proto = window.location.protocol;
+  if (proto === 'https:') return true;
+  const host = window.location.hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+};
+
+/** Translate the raw camera error into something a venue partner can
+ *  act on. Covers the common mobile failure modes: denied permission,
+ *  no camera, camera busy, getUserMedia unsupported. */
+const friendlyCameraError = (e: any): string => {
+  const name = (e?.name || '').toString();
+  const msg = (e?.message || '').toString();
+  if (name === 'NotAllowedError' || /permission/i.test(msg)) {
+    return (
+      'Camera permission was denied. Open your browser settings for this ' +
+      'page, allow camera access, then reopen the drawer. On iOS you may ' +
+      'need to fully close + reopen Safari.'
+    );
+  }
+  if (name === 'NotFoundError' || /no.*camera/i.test(msg)) {
+    return 'No camera was found on this device. Switch to "Type code".';
+  }
+  if (name === 'NotReadableError' || /in use/i.test(msg) || /busy/i.test(msg)) {
+    return 'Camera is in use by another app. Close it and try again.';
+  }
+  if (name === 'OverconstrainedError') {
+    return (
+      'Rear camera is not available on this device. Reload the page and ' +
+      'try again; we will fall back to the default camera.'
+    );
+  }
+  if (/getusermedia/i.test(msg)) {
+    return (
+      'This browser does not expose camera access. Try Chrome, Safari, or ' +
+      'switch to "Type code" below.'
+    );
+  }
+  return msg || 'Could not start the camera. Switch to "Type code" instead.';
 };
 
 export default PairDeviceByScan;

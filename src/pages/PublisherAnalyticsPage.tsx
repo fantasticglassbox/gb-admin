@@ -36,6 +36,7 @@ import {
 } from 'recharts';
 import { apiService } from '../services/api';
 import { PublisherAnalytics } from '../types';
+import CampaignPlaybackCard from '../components/CampaignPlaybackCard';
 import { formatCurrencyDetailed } from '../utils/formatters';
 
 const FUNNEL_COLORS = ['#ed6c02', '#2e7d32', '#d32f2f', '#9e9e9e']; // PROPOSED/APPROVED/REJECTED/REVOKED
@@ -308,6 +309,14 @@ const PublisherAnalyticsPage: React.FC = () => {
               </Table>
             )}
           </Paper>
+        </Grid>
+
+        {/* V2 per-campaign proof-of-play. Sourced from playback_aggregates
+            (the new hourly counter table the v2 player writes), so this
+            stays empty for any publisher whose campaigns predate the
+            cutover. */}
+        <Grid item xs={12}>
+          <CampaignPlaybackCard />
         </Grid>
       </Grid>
     </Box>

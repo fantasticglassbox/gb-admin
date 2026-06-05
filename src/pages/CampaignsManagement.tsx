@@ -40,7 +40,7 @@ import LaunchIcon from '@mui/icons-material/Launch';
 import SendIcon from '@mui/icons-material/Send';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
-import { Advertiser, ApprovalSummary, Campaign } from '../types';
+import { Advertiser, ApprovalSummary, Campaign, CampaignPlaybackRow } from '../types';
 
 const STATE_COLOR: Record<string, 'default' | 'primary' | 'success' | 'warning' | 'error'> = {
   DRAFT: 'default',
@@ -54,6 +54,35 @@ const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 /** Compact submission-status indicator for the table cell. Shows a row
  *  of small status pills with counts; nothing when the campaign has
  *  never been submitted. */
+/** Compact impressions cell — bold number on top, by-venue + by-device
+ *  context underneath. Empty for campaigns with no recorded playback. */
+const ImpressionsCell: React.FC<{ row?: CampaignPlaybackRow }> = ({ row }) => {
+  if (!row || row.complete_count === 0) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        —
+      </Typography>
+    );
+  }
+  return (
+    <Box>
+      <Typography
+        sx={{
+          fontWeight: 700,
+          fontVariantNumeric: 'tabular-nums',
+          fontSize: 14,
+        }}
+      >
+        {row.complete_count.toLocaleString()}
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        {row.venue_count} venue{row.venue_count === 1 ? '' : 's'} ·{' '}
+        {row.device_count} device{row.device_count === 1 ? '' : 's'}
+      </Typography>
+    </Box>
+  );
+};
+
 const SubmissionsCell: React.FC<{ summary?: ApprovalSummary }> = ({
   summary,
 }) => {
@@ -132,6 +161,7 @@ const CampaignsManagement: React.FC = () => {
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+  const [playbackByCampaign, setPlaybackByCampaign] = useState<Record<string, CampaignPlaybackRow>>({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -168,6 +198,23 @@ const CampaignsManagement: React.FC = () => {
       .listAdvertisersV2({ limit: 200 })
       .then((r: any) => setAdvertisers(r.data || []))
       .catch(() => setAdvertisers([]));
+  }, []);
+
+  // Per-campaign proof-of-play rollup over the last 30 days. Auto-
+  // scoped by role (publisher → own campaigns; venue partner → own
+  // venue; admin → everything). Failures silently fall back to empty
+  // so the rest of the page keeps working.
+  useEffect(() => {
+    apiService
+      .getCampaignPlayback()
+      .then((r) => {
+        const map: Record<string, CampaignPlaybackRow> = {};
+        (r.data || []).forEach((row) => {
+          map[row.campaign_id] = row;
+        });
+        setPlaybackByCampaign(map);
+      })
+      .catch(() => setPlaybackByCampaign({}));
   }, []);
 
   // ---- handlers ----
@@ -258,6 +305,7 @@ const CampaignsManagement: React.FC = () => {
               <TableCell>Advertiser</TableCell>
               <TableCell>Period</TableCell>
               <TableCell align="center">Submissions</TableCell>
+              <TableCell align="right">Impressions (30d)</TableCell>
               <TableCell align="center">Zones</TableCell>
               <TableCell>State</TableCell>
               <TableCell align="right">Actions</TableCell>
@@ -266,13 +314,13 @@ const CampaignsManagement: React.FC = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                   <CircularProgress size={28} />
                 </TableCell>
               </TableRow>
             ) : campaigns.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                   No campaigns yet.
                 </TableCell>
               </TableRow>
@@ -312,6 +360,9 @@ const CampaignsManagement: React.FC = () => {
                     </TableCell>
                     <TableCell align="center">
                       <SubmissionsCell summary={c.approval_summary} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <ImpressionsCell row={playbackByCampaign[c.id]} />
                     </TableCell>
                     <TableCell align="center">
                       <Stack
