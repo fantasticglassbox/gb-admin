@@ -77,6 +77,9 @@ export interface Device {
   // /partner/devices/register. Used by the admin assign-to-outlet
   // picker to restrict choices to outlets of the owning venue.
   venue_partner_id?: string;
+  // V2 multi-zone layout binding. Empty = fullscreen (single main zone,
+  // playlist behaves as before). Set via admin "Set layout" dialog.
+  layout_id?: string;
   status: 'active' | 'inactive' | 'maintenance' | 'offline';
   device_type: 'tablet' | 'phone' | 'tv' | 'kiosk';
   location?: {
@@ -314,21 +317,42 @@ export interface FilterOptions {
 export interface Advertisement {
   id: string;
   partner_id: string;
-  title?: string; // Advertisement title (was name)
-  content?: string; // URL to the content (image/video)
-  type?: string; // Content type (image, video, etc.)
+  title?: string;
+
+  // V2 canonical wire fields (GET /v2/advertisements, /v2/devices/*/playlist).
+  // The backend emits these on every V2 response; v1 endpoints still emit
+  // the legacy fields below. Readers should prefer canonical names and
+  // fall back via the `adContentUrl` / `adContentType` / `adDuration`
+  // helpers (see services/api.ts).
+  content_url?: string;
+  content_type?: string;
+  duration_seconds?: number;
+
+  // Legacy V1 names — kept for compatibility with v1 /advertisements/list
+  // and the create/edit form which still POSTs against /v1. Will be
+  // removed once /v2 has CREATE + UPDATE endpoints and the form migrates.
+  /** @deprecated prefer content_url */
+  content?: string;
+  /** @deprecated prefer content_type */
+  type?: string;
+  /** @deprecated prefer duration_seconds */
+  duration?: number;
+
   categories?: string; // Comma-separated categories
   state?: 'DRAFT' | 'PUBLISHED' | 'REJECTED' | 'INACTIVE'; // Advertisement state
   rejection_reason?: string; // Reason for rejection
   created_by?: string;
-  duration?: number; // Display duration in seconds
   description?: string;
   published_time_start?: string; // Start time
   published_time_end?: string; // End time
+  /** V2 — which zone slug this ad targets (default 'main'). Picked at submit. */
+  target_zone_slug?: string;
+  /** V2 — Advertiser (brand) ownership for publisher-created ads. */
+  advertiser_id?: string;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
-  // Legacy fields for backward compatibility
+  // Legacy fields for backward compatibility (older list endpoint shapes)
   name?: string;
   status?: 'draft' | 'active' | 'paused' | 'completed';
   start_date?: string;
@@ -338,10 +362,24 @@ export interface Advertisement {
   merchant_ids?: string[];
 }
 
+/** Read the playable URL from an Advertisement regardless of wire shape. */
+export const adContentUrl = (a: Advertisement): string =>
+  a.content_url || a.content || a.image_url || a.video_url || '';
+
+/** Read the content type (IMAGE|VIDEO|…) regardless of wire shape. */
+export const adContentType = (a: Advertisement): string =>
+  (a.content_type || a.type || '').toString();
+
+/** Read the duration in seconds regardless of wire shape. */
+export const adDuration = (a: Advertisement): number =>
+  a.duration_seconds ?? a.duration ?? 0;
+
 export interface CreateAdvertisementRequest {
   partner_id?: string; // Optional - will be detected from bearer token
   /** V2 — set by publisher role; the brand this creative is for. */
   advertiser_id?: string;
+  /** V2 — which zone slug this ad targets (default 'main'). */
+  target_zone_slug?: string;
   title?: string; // Advertisement title
   content?: string; // URL to the content (image/video)
   type?: string; // Content type (image, video, etc.)
@@ -635,6 +673,10 @@ export interface AdvertisementResponse {
   description?: string;
   published_time_start?: string; // Start time
   published_time_end?: string; // End time
+  /** V2 — which zone slug this ad targets (default 'main'). Picked at submit. */
+  target_zone_slug?: string;
+  /** V2 — Advertiser (brand) ownership for publisher-created ads. */
+  advertiser_id?: string;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
@@ -1304,4 +1346,228 @@ export interface VenuePartnerDashboard {
   pending_payout_idr: number;
   paid_this_month_idr: number;
   recent_settlements: Settlement[];
+}
+
+
+// V2 multi-zone layouts ----------------------------------------------------
+
+/** A single rectangular region inside a layout. Coordinates are 0-100
+ *  percentage points so the same template fits any aspect ratio. */
+export interface LayoutZone {
+  slug: string;
+  x_pct: number;
+  y_pct: number;
+  w_pct: number;
+  h_pct: number;
+  /** Which content kinds this zone is willing to play. */
+  accepts: ('video' | 'image' | 'ticker')[];
+}
+
+export type LayoutStatus = 'ACTIVE' | 'DEPRECATED';
+
+/** Platform-defined screen template. Devices reference one layout via
+ *  Device.layout_id; gb-media reads zones[] and lays out widgets at the
+ *  declared rectangles. */
+export interface Layout {
+  id: string;
+  slug: string;
+  display_name: string;
+  description?: string;
+  zones: LayoutZone[];
+  status: LayoutStatus;
+}
+
+// ----- V2 campaigns (Epic-D D-1/D-2) -----
+//
+// A Campaign is the atomic V2 unit of advertiser intent. It owns one
+// or more CampaignAssets, each pinned to a layout zone slug, so a
+// single approval per (campaign × venue) covers a multi-zone layout.
+// Replaces the V1 Advertisement-shaped flow on the V2 surface.
+
+export type CampaignState = 'DRAFT' | 'PUBLISHED' | 'REJECTED' | 'INACTIVE';
+
+export type CampaignAssetType = 'IMAGE' | 'VIDEO';
+
+export interface CampaignAsset {
+  id: string;
+  campaign_id: string;
+  zone_slug: string;
+  content_url: string;
+  content_type: CampaignAssetType;
+  duration_seconds: number;
+  sort_order: number;
+  sha256?: string;
+  size_bytes?: number;
+  version?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Per-status approval count for one campaign. Returned inline on
+ *  CampaignResponse so list views can show submission outcomes without
+ *  a separate /campaign-approvals roundtrip. */
+export interface ApprovalSummary {
+  proposed: number;
+  approved: number;
+  rejected: number;
+  revoked: number;
+}
+
+export interface Campaign {
+  id: string;
+  publisher_id?: string;
+  advertiser_id?: string;
+  title: string;
+  description?: string;
+  /** Layout the publisher designed against. Drives editor zone picker
+   *  + live preview. Empty = no preferred layout. */
+  target_layout_id?: string;
+  categories?: string;
+  /** Day-of-week schedule. CSV: "mon=08:00-22:00,tue=08:00-22:00,...".
+   *  Empty = 24/7. Days not listed = dark that day. */
+  playing_hours?: string;
+  published_time_start: string;
+  published_time_end: string;
+  state: CampaignState;
+  rejection_reason?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  assets: CampaignAsset[];
+  /** Submission outcomes per status. Zeros across the board means the
+   *  campaign has never been submitted. */
+  approval_summary: ApprovalSummary;
+}
+
+export interface CreateCampaignRequest {
+  advertiser_id: string;
+  title: string;
+  description?: string;
+  target_layout_id?: string;
+  categories?: string;
+  playing_hours?: string;
+  published_time_start: string;
+  published_time_end: string;
+}
+
+export interface UpdateCampaignRequest {
+  title?: string;
+  description?: string;
+  target_layout_id?: string;
+  categories?: string;
+  playing_hours?: string;
+  published_time_start?: string;
+  published_time_end?: string;
+}
+
+export interface CreateCampaignAssetRequest {
+  zone_slug: string;
+  content_url: string;
+  content_type: CampaignAssetType;
+  duration_seconds?: number;
+  sort_order?: number;
+  sha256?: string;
+  size_bytes?: number;
+}
+
+export type CampaignApprovalStatus =
+  | 'PROPOSED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REVOKED';
+
+export interface CampaignApproval {
+  id: string;
+  campaign_id: string;
+  venue_partner_id: string;
+  outlet_group_id?: string;
+  status: CampaignApprovalStatus;
+  requested_by: string;
+  decided_by: string;
+  decided_at?: string;
+  reject_reason?: string;
+  revoked_by: string;
+  revoked_at?: string;
+  revoked_reason?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubmitCampaignRequest {
+  campaign_id: string;
+  venue_partner_ids: string[];
+  outlet_group_ids?: string[];
+  notes?: string;
+}
+
+export interface SubmitCampaignResult {
+  created: CampaignApproval[];
+  skipped: { venue_partner_id: string; reason: string }[];
+}
+
+// ----- V2 outlet groups (Epic-D phase 1) -----
+
+/** How an OutletGroup computes its membership.
+ *  ANY            — every outlet of the venue (one per venue, always present)
+ *  SYSTEM_AUTO    — predicate (city = X or province = Y), resolved on the fly
+ *  VENUE_CURATED  — explicit member list managed by the venue partner */
+export type OutletGroupKind = 'ANY' | 'SYSTEM_AUTO' | 'VENUE_CURATED';
+
+/** Status badge used by the picker to grey out non-selectable groups. */
+export type OutletGroupStatus = 'ACTIVE' | 'DEPRECATED';
+
+/** A targetable subset of a venue's outlets. Publishers pick groups
+ *  (not individual outlets) when submitting an ad. */
+export interface OutletGroup {
+  id: string;
+  venue_partner_id: string;
+  slug: string;
+  display_name: string;
+  description?: string;
+  kind: OutletGroupKind;
+  status: OutletGroupStatus;
+  /** SYSTEM_AUTO only — e.g. {field: "city", value: "Bandung"}. */
+  predicate?: { field: string; value: string } | null;
+  /** Resolved live by the backend (lightweight count, not an array). */
+  member_count: number;
+}
+
+// ----- Targeting preview (Epic-D phase 2) -----
+
+export interface TargetingPreviewRequest {
+  /** Optional — when provided, compliance_exceptions is populated by
+   *  intersecting the ad's categories with each outlet's blocked_categories. */
+  advertisement_id?: string;
+  outlet_group_ids: string[];
+}
+
+export interface PreviewVenueRow {
+  venue_partner_id: string;
+  outlets: number;
+}
+
+export interface PreviewCityRow {
+  city: string;
+  outlets: number;
+}
+
+export interface PreviewException {
+  outlet_id: string;
+  outlet_name: string;
+  venue_partner_id: string;
+  blocked_category: string;
+  outlet_group_id: string;
+  outlet_group_name: string;
+}
+
+export interface TargetingPreview {
+  total_outlets: number;
+  total_cities: number;
+  total_venues: number;
+  by_venue: PreviewVenueRow[];
+  top_cities: PreviewCityRow[];
+  compliance_exceptions: PreviewException[];
+  fan_out_groups: number;
+  exception_count: number;
 }

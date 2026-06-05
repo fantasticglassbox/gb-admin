@@ -33,6 +33,8 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
+  Link as LinkIcon,
+  Sync as SyncIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
@@ -42,9 +44,14 @@ import {
   GetApp as ExportIcon,
   Store as StoreIcon,
   LinkOff as LinkOffIcon,
+  ViewQuilt as LayoutIcon,
+  QrCodeScanner as QrCodeScannerIcon,
 } from '@mui/icons-material';
-import { DeviceResponse, Merchant, FilterOptions, Outlet } from '../types';
+import { DeviceResponse, Merchant, FilterOptions, Outlet, Layout } from '../types';
 import { apiService } from '../services/api';
+import PairDeviceDialog from '../components/PairDeviceDialog';
+import PairDeviceByScan from '../components/PairDeviceByScan';
+import DeviceLayoutDialog from '../components/DeviceLayoutDialog';
 import { useAuth } from '../contexts/AuthContext';
 
 interface TabPanelProps {
@@ -115,6 +122,30 @@ const DevicesManagement: React.FC = () => {
   // Outlet assignment dialog (V2)
   const [outletDialogOpen, setOutletDialogOpen] = useState(false);
   const [outletDialogDevice, setOutletDialogDevice] = useState<DeviceResponse | null>(null);
+
+  // V2 pair-a-new-device dialog state
+  const [pairDialogOpen, setPairDialogOpen] = useState(false);
+  const [pairByScanOpen, setPairByScanOpen] = useState(false);
+  // Tracks which device currently has a force-sync request in flight so
+  // we can show a spinner on its row.
+  const [syncingDeviceIds, setSyncingDeviceIds] = useState<Set<string>>(new Set());
+
+  // V2 layout dialog + catalog cache for the per-row "Layout" column
+  const [layoutDialogDevice, setLayoutDialogDevice] = useState<DeviceResponse | null>(null);
+  const [layouts, setLayouts] = useState<Layout[]>([]);
+  const layoutBySlug = React.useMemo(() => {
+    const m: Record<string, Layout> = {};
+    layouts.forEach((l) => { m[l.id] = l; });
+    return m;
+  }, [layouts]);
+
+  // Lazy-load the layout catalog once — used purely for the row display.
+  useEffect(() => {
+    if (layouts.length === 0) {
+      apiService.listLayouts().then(setLayouts).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [outletPickerId, setOutletPickerId] = useState('');
   const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [outletsLoading, setOutletsLoading] = useState(false);
@@ -357,6 +388,28 @@ const DevicesManagement: React.FC = () => {
     }
   };
 
+  /**
+   * Force-sync — bumps the device's sync_token server-side; the
+   * device's next heartbeat (≤ 5 min) detects the mismatch and
+   * re-fetches its playlist immediately. Per-row spinner via
+   * `syncingDeviceIds`.
+   */
+  const handleForceSync = async (device: DeviceResponse) => {
+    setSyncingDeviceIds((prev) => new Set(prev).add(device.id));
+    try {
+      await apiService.forceSyncDevice(device.id);
+      setSuccess(`Sync requested for ${(device as any).device_name || device.name}`);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to request sync');
+    } finally {
+      setSyncingDeviceIds((prev) => {
+        const next = new Set(prev);
+        next.delete(device.id);
+        return next;
+      });
+    }
+  };
+
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
@@ -476,14 +529,35 @@ const DevicesManagement: React.FC = () => {
           >
             Export Activities
           </Button>
-          {hasRole('admin') && (
+          {/* Venue partners can pair their own devices by scanning the
+              QR shown on the device. Admin gets both flows — the
+              classic typed-code dialog and the scan drawer. */}
+          {(hasRole('venue_partner') || hasRole('admin')) && (
             <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateDevice}
+              variant={hasRole('admin') ? 'outlined' : 'contained'}
+              startIcon={<QrCodeScannerIcon />}
+              onClick={() => setPairByScanOpen(true)}
             >
-              Add Device
+              Pair by scan
             </Button>
+          )}
+          {hasRole('admin') && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<LinkIcon />}
+                onClick={() => setPairDialogOpen(true)}
+              >
+                Pair device
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleCreateDevice}
+              >
+                Add Device
+              </Button>
+            </>
           )}
         </Box>
       </Box>
@@ -657,6 +731,35 @@ const DevicesManagement: React.FC = () => {
                       </Tooltip>
                       {hasRole('admin') && (
                         <>
+                          <Tooltip title="Pull latest now (force sync)">
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={syncingDeviceIds.has(device.id)}
+                                onClick={() => handleForceSync(device)}
+                              >
+                                {syncingDeviceIds.has(device.id) ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  <SyncIcon />
+                                )}
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip
+                            title={
+                              device.layout_id
+                                ? `Layout: ${layoutBySlug[device.layout_id]?.display_name || 'unknown'}`
+                                : 'Set layout (default: fullscreen)'
+                            }
+                          >
+                            <IconButton
+                              size="small"
+                              onClick={() => setLayoutDialogDevice(device)}
+                            >
+                              <LayoutIcon />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title={device.outlet_id ? 'Reassign Outlet' : 'Assign to Outlet'}>
                             <IconButton size="small" onClick={() => handleOpenAssignOutlet(device)}>
                               <StoreIcon />
@@ -1005,6 +1108,41 @@ const DevicesManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* V2 Pair-a-new-device dialog — opens from the header "Pair device" button */}
+      <PairDeviceDialog
+        open={pairDialogOpen}
+        onClose={() => setPairDialogOpen(false)}
+        onPaired={() => {
+          setSuccess('Device paired — screen should switch to playback shortly');
+          loadDevices();
+        }}
+      />
+
+      {/* V2 Pair-by-scan drawer — opens from "Pair by scan". Scopes
+          venue_partner_id from the logged-in user; admin can also use
+          this entry point but the dropdown would be empty until we let
+          them pick a venue (separate task). */}
+      <PairDeviceByScan
+        open={pairByScanOpen}
+        onClose={() => setPairByScanOpen(false)}
+        venuePartnerId={user?.venue_partner_id || ''}
+        onPaired={() => {
+          setSuccess('Device paired — screen should switch to playback shortly');
+          loadDevices();
+        }}
+      />
+
+      {/* V2 Set-device-layout dialog — opens from the per-row layout icon */}
+      <DeviceLayoutDialog
+        open={!!layoutDialogDevice}
+        device={layoutDialogDevice}
+        onClose={() => setLayoutDialogDevice(null)}
+        onSaved={() => {
+          setSuccess('Device layout updated');
+          loadDevices();
+        }}
+      />
     </Box>
   );
 };

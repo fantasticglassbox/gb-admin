@@ -42,6 +42,20 @@ import {
   SubmitAdApprovalRequest,
   SubmitAdApprovalResult,
   PlaylistAd,
+  Layout,
+  OutletGroup,
+  TargetingPreview,
+  TargetingPreviewRequest,
+  Campaign,
+  CampaignAsset,
+  CampaignApproval,
+  CampaignApprovalStatus,
+  CampaignState,
+  CreateCampaignRequest,
+  UpdateCampaignRequest,
+  CreateCampaignAssetRequest,
+  SubmitCampaignRequest,
+  SubmitCampaignResult,
 } from '../types';
 
 class ApiService {
@@ -924,6 +938,54 @@ class ApiService {
     await this.apiV2.post(`/devices/${deviceId}/unassign-outlet`);
   }
 
+  /**
+   * Pair a gb-media device using the 6-character code displayed on its screen.
+   * Creates the device row tagged with the chosen venue (and optional outlet),
+   * flips the PairCode to CLAIMED — the device's next /pair/status poll then
+   * picks up its credentials and navigates to playback.
+   *
+   * Code is normalised to upper-case + stripped of whitespace before sending,
+   * since the device displays it as "G4N 7XP" for legibility but stores it
+   * unhyphenated.
+   */
+  async pairDevice(
+    code: string,
+    payload: { venue_partner_id: string; outlet_id?: string; device_name?: string },
+  ): Promise<{ device_id: string; venue_partner_id: string; outlet_id?: string }> {
+    const normalized = code.replace(/\s+/g, '').toUpperCase();
+    const response = await this.apiV2.post(`/devices/pair/${normalized}`, payload);
+    return response.data?.data ?? response.data;
+  }
+
+  /**
+   * Bump the device's sync_token so its next heartbeat detects "new content
+   * server-side" and refetches the playlist immediately. Used by the admin
+   * "Pull latest now" row action and by the gb-media operator panel's Sync
+   * button (which calls the same endpoint with its own JWT).
+   */
+  async forceSyncDevice(deviceId: string): Promise<{ sync_token: number }> {
+    const response = await this.apiV2.post(`/devices/${deviceId}/force-sync`);
+    return response.data?.data ?? response.data;
+  }
+
+  /**
+   * V2 multi-zone layouts — fetches the catalog of ACTIVE templates.
+   * Used by the device layout picker and by the publisher-side zone
+   * picker (which derives slugs from the union of zones across layouts).
+   */
+  async listLayouts(): Promise<Layout[]> {
+    const response = await this.apiV2.get('/layouts');
+    return response.data?.data ?? [];
+  }
+
+  /**
+   * Assigns a layout to a device. Pass empty string to clear the override
+   * — the device falls back to fullscreen behavior (legacy playlist shape).
+   */
+  async setDeviceLayout(deviceId: string, layoutId: string): Promise<void> {
+    await this.apiV2.put(`/devices/${deviceId}/layout`, { layout_id: layoutId });
+  }
+
   async listUnassignedDevices(filters?: FilterOptions): Promise<PaginatedResponse<Device>> {
     const response = await this.apiV2.get('/devices/unassigned', { params: filters });
     const body: any = response.data;
@@ -1249,6 +1311,145 @@ class ApiService {
       params: at ? { at } : undefined,
     });
     return response.data?.data || [];
+  }
+
+  // ----- V2 outlet groups (Epic-D phase 1) -----
+
+  /**
+   * Lists every active outlet group for a venue — drives the per-venue
+   * picker on the publisher submit page. Admin + publisher can read
+   * any venue; venue partner is restricted to their own.
+   */
+  async listOutletGroupsForVenue(venueId: string): Promise<OutletGroup[]> {
+    const response = await this.apiV2.get(`/venues/${venueId}/outlet-groups`);
+    return response.data?.data || [];
+  }
+
+  /**
+   * Live coverage preview for the publisher submit page's right rail.
+   * Pass `advertisement_id` to include per-outlet compliance exceptions
+   * (outlets that block one of the ad's categories — these turn into
+   * per-outlet decisions instead of bulk group approvals).
+   */
+  async targetingPreview(req: TargetingPreviewRequest): Promise<TargetingPreview> {
+    const response = await this.apiV2.post('/targeting/preview', req);
+    return response.data;
+  }
+
+  // ----- V2 campaigns (Epic-D D-1/D-2) -----
+  //
+  // A campaign is the V2 atomic unit. List / detail / mutate operate
+  // on campaigns; assets are managed through nested routes. The legacy
+  // /v2/advertisements list is still around for backward compat but
+  // the V2 admin UI now consumes campaigns end-to-end.
+
+  async listCampaigns(filters?: FilterOptions & {
+    state?: CampaignState | string;
+    advertiser_id?: string;
+    publisher_id?: string;
+  }): Promise<PaginatedResponse<Campaign>> {
+    const response = await this.apiV2.get('/campaigns', { params: filters });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async getCampaign(id: string): Promise<Campaign> {
+    const response = await this.apiV2.get(`/campaigns/${id}`);
+    return response.data?.data ?? response.data;
+  }
+
+  async createCampaign(payload: CreateCampaignRequest): Promise<Campaign> {
+    const response = await this.apiV2.post('/campaigns', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async updateCampaign(id: string, payload: UpdateCampaignRequest): Promise<Campaign> {
+    const response = await this.apiV2.put(`/campaigns/${id}`, payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async deleteCampaign(id: string): Promise<void> {
+    await this.apiV2.delete(`/campaigns/${id}`);
+  }
+
+  /** DRAFT → PUBLISHED transition. Requires at least one asset. */
+  async publishCampaign(id: string): Promise<Campaign> {
+    const response = await this.apiV2.post(`/campaigns/${id}/publish`);
+    return response.data?.data ?? response.data;
+  }
+
+  async addCampaignAsset(
+    campaignId: string,
+    payload: CreateCampaignAssetRequest,
+  ): Promise<CampaignAsset> {
+    const response = await this.apiV2.post(
+      `/campaigns/${campaignId}/assets`,
+      payload,
+    );
+    return response.data?.data ?? response.data;
+  }
+
+  async updateCampaignAsset(
+    campaignId: string,
+    assetId: string,
+    payload: CreateCampaignAssetRequest,
+  ): Promise<CampaignAsset> {
+    const response = await this.apiV2.put(
+      `/campaigns/${campaignId}/assets/${assetId}`,
+      payload,
+    );
+    return response.data?.data ?? response.data;
+  }
+
+  async deleteCampaignAsset(campaignId: string, assetId: string): Promise<void> {
+    await this.apiV2.delete(`/campaigns/${campaignId}/assets/${assetId}`);
+  }
+
+  // Campaign-approval lifecycle (replaces ad-approvals).
+
+  async listCampaignApprovals(
+    filters?: FilterOptions & {
+      status?: CampaignApprovalStatus | string;
+      campaign_id?: string;
+      venue_partner_id?: string;
+      publisher_id?: string;
+    },
+  ): Promise<PaginatedResponse<CampaignApproval>> {
+    const response = await this.apiV2.get('/campaign-approvals', {
+      params: filters,
+    });
+    const body: any = response.data;
+    return {
+      data: body?.data || [],
+      pagination: body?.pagination || { total: 0, page: 1, limit: 0 },
+    };
+  }
+
+  async getCampaignApproval(id: string): Promise<CampaignApproval> {
+    const response = await this.apiV2.get(`/campaign-approvals/${id}`);
+    return response.data?.data ?? response.data;
+  }
+
+  async submitCampaign(payload: SubmitCampaignRequest): Promise<SubmitCampaignResult> {
+    const response = await this.apiV2.post('/campaign-approvals/submit', payload);
+    return response.data?.data ?? response.data;
+  }
+
+  async approveCampaignApproval(id: string): Promise<void> {
+    await this.apiV2.post(`/campaign-approvals/${id}/approve`);
+  }
+
+  async rejectCampaignApproval(id: string, reason: string): Promise<void> {
+    await this.apiV2.post(`/campaign-approvals/${id}/reject`, { reason });
+  }
+
+  async revokeCampaignApproval(id: string, reason?: string): Promise<void> {
+    await this.apiV2.post(`/campaign-approvals/${id}/revoke`, {
+      reason: reason || '',
+    });
   }
 }
 

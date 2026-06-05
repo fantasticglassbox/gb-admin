@@ -95,25 +95,38 @@ const getNavigationSections = (t: any): NavigationSection[] => [
   },
 
   // Content & Campaign Management Section — pulled up to second position
-  // because the day-to-day CMS work happens here (ads, approvals).
+  // because the day-to-day CMS work happens here.
   {
     title: t('contentCampaigns'),
     items: [
       {
+        // V2 — campaigns own multiple zone-pinned creatives and are the
+        // atomic unit of submission. New work goes here.
+        text: 'Campaigns',
+        icon: <CampaignIcon />,
+        path: 'campaigns',
+        roles: ['admin', 'publisher'],
+      },
+      {
+        // V1 advertisements — legacy page kept for partner/merchant roles
+        // that haven't migrated to the campaign model yet. Hidden from
+        // admin/publisher to push them to the new Campaigns page.
         text: t('advertisementsManagement'),
         icon: <CampaignIcon />,
         path: 'advertisements',
-        roles: ['admin', 'partner', 'merchant', 'publisher'],
+        roles: ['partner', 'merchant'],
       },
       {
-        // V2 booking flow. One adaptive page mounted at /<role>/approvals:
-        //   admin       → all approvals across the platform
-        //   publisher   → "My Submissions" (own ads + statuses per venue)
-        //   venue_partner → "Approval Queue" (incoming PROPOSED rows)
-        text: 'Ad Approvals',
+        // V2 booking flow. Approvals are venue-side decisions, so only
+        // admin (platform-wide visibility) and venue_partner (own queue)
+        // see this nav entry. Publishers track their own submissions
+        // from the Campaigns list — surfacing approval state on the
+        // campaign row keeps it in their "creator" mental model rather
+        // than asking them to context-switch into a venue UI.
+        text: 'Campaign Approvals',
         icon: <CampaignIcon />,
         path: 'approvals',
-        roles: ['admin', 'publisher'],
+        roles: ['admin'],
       },
       {
         text: 'Approval Queue',

@@ -32,6 +32,9 @@ import SettlementsManagement from './pages/SettlementsManagement';
 import PublisherDashboard from './pages/PublisherDashboard';
 import VenuePartnerDashboard from './pages/VenuePartnerDashboard';
 import AdApprovalsManagement from './pages/AdApprovalsManagement';
+import AdSubmitTargeting from './pages/AdSubmitTargeting';
+import CampaignsManagement from './pages/CampaignsManagement';
+import CampaignEditor from './pages/CampaignEditor';
 import IntegrationsManagement from './pages/IntegrationsManagement';
 import VenueOutletsPage from './pages/VenueOutletsPage';
 import PublisherAdvertisersPage from './pages/PublisherAdvertisersPage';
@@ -76,6 +79,10 @@ function App() {
               <Route path="devices" element={<DevicesManagement />} />
               <Route path="devices/:deviceId" element={<DeviceDetail />} />
               <Route path="advertisements" element={<AdvertisementsManagement />} />
+              <Route path="campaigns" element={<CampaignsManagement />} />
+              <Route path="campaigns/new" element={<CampaignEditor />} />
+              <Route path="campaigns/:campaignId/edit" element={<CampaignEditor />} />
+              <Route path="campaigns/:campaignId/submit" element={<AdSubmitTargeting />} />
               <Route path="assets" element={<AssetsManagement />} />
               <Route path="partner-fees" element={<AlignedPartnerSchemaFeeManagement />} />
               <Route path="business-fees" element={<AlignedBusinessSchemaFeeManagement />} />
@@ -125,7 +132,13 @@ function App() {
               <Route index element={<PublisherDashboard />} />
               <Route path="advertisers" element={<PublisherAdvertisersPage />} />
               <Route path="advertisements" element={<AdvertisementsManagement />} />
-              <Route path="approvals" element={<AdApprovalsManagement />} />
+              <Route path="campaigns" element={<CampaignsManagement />} />
+              <Route path="campaigns/new" element={<CampaignEditor />} />
+              <Route path="campaigns/:campaignId/edit" element={<CampaignEditor />} />
+              <Route path="campaigns/:campaignId/submit" element={<AdSubmitTargeting />} />
+              {/* Publisher does NOT get an approvals queue — they track
+                  submission status from the Campaigns list. The route
+                  was removed; bookmarked URLs now 404. */}
               <Route path="settlements" element={<SettlementsManagement />} />
               <Route path="analytics" element={<PublisherAnalyticsPage />} />
             </Route>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Paper,
@@ -32,6 +33,7 @@ import {
 import {
   Add as AddIcon,
   Edit as EditIcon,
+  Send as SendIcon,
   Search as SearchIcon,
   Refresh as RefreshIcon,
   Campaign as AdIcon,
@@ -52,12 +54,26 @@ import {
   Cancel,
   Pause,
 } from '@mui/icons-material';
-import { Advertisement, CreateAdvertisementRequest, Partner, Merchant, FilterOptions, AssignAds, Advertiser } from '../types';
+import {
+  Advertisement,
+  CreateAdvertisementRequest,
+  Partner,
+  Merchant,
+  FilterOptions,
+  AssignAds,
+  Advertiser,
+  Layout,
+  adContentUrl,
+  adContentType,
+  adDuration,
+} from '../types';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const AdvertisementsManagement: React.FC = () => {
   const { hasRole, user } = useAuth();
+  const navigate = useNavigate();
+  const basePath = `/${user?.role || 'admin'}`;
   const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
   const [merchants, setMerchants] = useState<Merchant[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -65,6 +81,40 @@ const AdvertisementsManagement: React.FC = () => {
   // when the user is a publisher; populates the per-ad "Advertiser"
   // picker required by the V2 create/update endpoints.
   const [advertisers, setAdvertisers] = useState<Advertiser[]>([]);
+  // V2 — layouts catalog, used to derive the union of zone slugs the
+  // publisher can target. Loaded once on mount.
+  const [layouts, setLayouts] = useState<Layout[]>([]);
+  // Sorted, deduped union of zone slugs across all ACTIVE layouts.
+  // 'main' is always first since it's the default; other slugs follow
+  // in alphabetical order.
+  const availableZones = React.useMemo<string[]>(() => {
+    const set = new Set<string>(['main']);
+    // Backend stores `zones` as a JSON-encoded string in the column
+    // and gin emits it verbatim — so we get a string here, not an
+    // array. Parse defensively so the picker works regardless of
+    // whether the server response is fixed (TODO: server-side
+    // transform in handler/v2/layout_handler.go).
+    const parseZones = (raw: unknown): Array<{ slug?: string }> => {
+      if (Array.isArray(raw)) return raw as Array<{ slug?: string }>;
+      if (typeof raw === 'string' && raw.length > 0) {
+        try {
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+    layouts.forEach((l) =>
+      parseZones((l as unknown as { zones: unknown }).zones).forEach(
+        (z) => z?.slug && set.add(z.slug),
+      ),
+    );
+    const arr = Array.from(set);
+    arr.sort((a, b) => (a === 'main' ? -1 : b === 'main' ? 1 : a.localeCompare(b)));
+    return arr;
+  }, [layouts]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +164,9 @@ const AdvertisementsManagement: React.FC = () => {
     loadMerchants();
     loadPartners();
     loadCategories();
+    // V2 layout catalog — used for the zone slug picker. Lightweight,
+    // load for every role so admin/partner/publisher all see the picker.
+    apiService.listLayouts().then(setLayouts).catch(() => {});
     if (hasRole('publisher')) {
       loadAdvertisers();
     }
@@ -297,11 +350,12 @@ const AdvertisementsManagement: React.FC = () => {
     setSuccess(null);
     
     // Auto-detect content type if not specified and normalize to uppercase
-    let detectedType = ad.type ? ad.type.toUpperCase() : '';
-    if (!detectedType && ad.content) {
-      if (ad.content.toLowerCase().includes('.mp4') || ad.content.toLowerCase().includes('.mov') || ad.content.toLowerCase().includes('.avi')) {
+    const adUrl = adContentUrl(ad);
+    let detectedType = adContentType(ad).toUpperCase();
+    if (!detectedType && adUrl) {
+      if (adUrl.toLowerCase().includes('.mp4') || adUrl.toLowerCase().includes('.mov') || adUrl.toLowerCase().includes('.avi')) {
         detectedType = 'VIDEO';
-      } else if (ad.content.toLowerCase().includes('.jpg') || ad.content.toLowerCase().includes('.png') || ad.content.toLowerCase().includes('.gif')) {
+      } else if (adUrl.toLowerCase().includes('.jpg') || adUrl.toLowerCase().includes('.png') || adUrl.toLowerCase().includes('.gif')) {
         detectedType = 'IMAGE';
       }
     }
@@ -325,10 +379,10 @@ const AdvertisementsManagement: React.FC = () => {
     setFormData({
       title: ad.title || ad.name || '',
       description: ad.description || '',
-      content: ad.content || ad.image_url || ad.video_url || '',
+      content: adUrl,
       type: detectedType,
       categories: ad.categories ? (typeof ad.categories === 'string' ? ad.categories.split(',').map(c => c.trim()) : ad.categories) : [],
-      duration: ad.duration,
+      duration: adDuration(ad),
       published_time_start: formatDateForInput(ad.published_time_start || ad.start_date || ''),
       published_time_end: formatDateForInput(ad.published_time_end || ad.end_date || ''),
       // Legacy fields
@@ -581,13 +635,10 @@ const AdvertisementsManagement: React.FC = () => {
   };
 
   const getContentType = (ad: Advertisement): 'image' | 'video' | 'none' => {
-    // Check new API format first (uppercase)
-    if (ad.type === 'VIDEO') return 'video';
-    if (ad.type === 'IMAGE') return 'image';
-    // Check lowercase for backward compatibility
-    if (ad.type === 'video') return 'video';
-    if (ad.type === 'image') return 'image';
-    // Fallback to legacy fields
+    const t = adContentType(ad).toUpperCase();
+    if (t === 'VIDEO') return 'video';
+    if (t === 'IMAGE') return 'image';
+    // Fallback to legacy split-URL fields.
     if (ad.video_url) return 'video';
     if (ad.image_url) return 'image';
     return 'none';
@@ -595,10 +646,8 @@ const AdvertisementsManagement: React.FC = () => {
 
   const getContentThumbnail = (ad: Advertisement) => {
     const contentType = getContentType(ad);
-    
-    // For images, use the content URL directly
     if (contentType === 'image') {
-      return ad.content || ad.image_url || null;
+      return adContentUrl(ad) || ad.image_url || null;
     }
     
     // For videos, only use image_url as thumbnail (not the video content itself)
@@ -845,6 +894,46 @@ const AdvertisementsManagement: React.FC = () => {
                 </FormControl>
               )}
 
+              {/* V2 — target zone picker. Shown to every creator role.
+                  Slugs come from the union of zones across active layouts. */}
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Target zone</InputLabel>
+                <Select
+                  value={(formData as any).target_zone_slug || 'main'}
+                  label="Target zone"
+                  onChange={(e) =>
+                    setFormData({ ...formData, target_zone_slug: e.target.value as string } as any)
+                  }
+                  disabled={(viewMode as string) === 'view'}
+                >
+                  {availableZones.map((slug) => (
+                    <MenuItem key={slug} value={slug}>
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Box
+                          component="span"
+                          sx={{
+                            fontFamily: 'monospace',
+                            fontWeight: 700,
+                            fontSize: 13,
+                          }}
+                        >
+                          {slug}
+                        </Box>
+                        {slug === 'main' && (
+                          <Typography variant="caption" color="text.secondary">
+                            — default · plays on fullscreen devices and any layout's main zone
+                          </Typography>
+                        )}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+                <Typography variant="caption" color="textSecondary" sx={{ mt: 1 }}>
+                  Where this creative renders on multi-zone devices.
+                  Devices without a layout play "main"-zone ads fullscreen.
+                </Typography>
+              </FormControl>
+
               <TextField
                 fullWidth
                 label="Publication Start Date"
@@ -1024,23 +1113,38 @@ const AdvertisementsManagement: React.FC = () => {
                 />
               </Box>
 
-              {selectedAd.type && (
+              {adContentType(selectedAd) && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2">Content Type:</Typography>
-                  <Chip 
-                    label={selectedAd.type} 
-                    color={selectedAd.type === 'VIDEO' ? 'primary' : selectedAd.type === 'IMAGE' ? 'secondary' : 'default'} 
-                    size="small" 
-                    icon={selectedAd.type === 'VIDEO' ? <VideoIcon /> : selectedAd.type === 'IMAGE' ? <ImageIcon /> : <AdIcon />}
+                  <Chip
+                    label={adContentType(selectedAd).toUpperCase()}
+                    color={
+                      adContentType(selectedAd).toUpperCase() === 'VIDEO'
+                        ? 'primary'
+                        : adContentType(selectedAd).toUpperCase() === 'IMAGE'
+                        ? 'secondary'
+                        : 'default'
+                    }
+                    size="small"
+                    icon={
+                      adContentType(selectedAd).toUpperCase() === 'VIDEO' ? (
+                        <VideoIcon />
+                      ) : adContentType(selectedAd).toUpperCase() === 'IMAGE' ? (
+                        <ImageIcon />
+                      ) : (
+                        <AdIcon />
+                      )
+                    }
                   />
                 </Box>
               )}
 
-              {selectedAd.duration && (
+              {adDuration(selectedAd) > 0 && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2">Duration:</Typography>
                   <Typography variant="body2">
-                    {Math.floor(selectedAd.duration / 60)}:{(selectedAd.duration % 60).toString().padStart(2, '0')} minutes
+                    {Math.floor(adDuration(selectedAd) / 60)}:
+                    {(adDuration(selectedAd) % 60).toString().padStart(2, '0')} minutes
                   </Typography>
                 </Box>
               )}
@@ -1095,7 +1199,7 @@ const AdvertisementsManagement: React.FC = () => {
                   Content Preview
                 </Typography>
                 
-                {getContentType(selectedAd) === 'image' && (selectedAd.content || selectedAd.image_url) && (
+                {getContentType(selectedAd) === 'image' && (adContentUrl(selectedAd) || selectedAd.image_url) && (
                   <Paper
                     sx={{
                       position: 'relative',
@@ -1104,8 +1208,8 @@ const AdvertisementsManagement: React.FC = () => {
                       backgroundColor: 'grey.100',
                     }}
                   >
-                    <img 
-                      src={selectedAd.content || selectedAd.image_url} 
+                    <img
+                      src={adContentUrl(selectedAd) || selectedAd.image_url}
                       alt={selectedAd.name || 'Advertisement'}
                       style={{ 
                         width: '100%', 
@@ -1136,7 +1240,7 @@ const AdvertisementsManagement: React.FC = () => {
                   </Paper>
                 )}
                 
-                {getContentType(selectedAd) === 'video' && (selectedAd.content || selectedAd.video_url) && (
+                {getContentType(selectedAd) === 'video' && (adContentUrl(selectedAd) || selectedAd.video_url) && (
                   <Paper
                     sx={{
                       position: 'relative',
@@ -1145,8 +1249,8 @@ const AdvertisementsManagement: React.FC = () => {
                       backgroundColor: '#000',
                     }}
                   >
-                    <video 
-                      src={selectedAd.content || selectedAd.video_url} 
+                    <video
+                      src={adContentUrl(selectedAd) || selectedAd.video_url}
                       controls
                       style={{ 
                         width: '100%', 
@@ -1173,7 +1277,7 @@ const AdvertisementsManagement: React.FC = () => {
                       }}
                     >
                       <VideoIcon fontSize="small" />
-                      Video {selectedAd.duration && `(${Math.floor(selectedAd.duration / 60)}:${(selectedAd.duration % 60).toString().padStart(2, '0')})`}
+                      Video {adDuration(selectedAd) > 0 && `(${Math.floor(adDuration(selectedAd) / 60)}:${(adDuration(selectedAd) % 60).toString().padStart(2, '0')})`}
                     </Box>
                   </Paper>
                 )}
@@ -1928,6 +2032,22 @@ const AdvertisementsManagement: React.FC = () => {
                           </IconButton>
                         </Tooltip>
                       )}
+                      {/* Submit-for-approval entry: DRAFT ads only.
+                          Published / Rejected ads can't be re-submitted
+                          without a new round-trip through the edit form. */}
+                      {(hasRole('publisher') || hasRole('admin')) &&
+                        (ad.state || '').toUpperCase() === 'DRAFT' && (
+                          <Tooltip title="Submit to venues">
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                navigate(`${basePath}/advertisements/${ad.id}/submit`)
+                              }
+                            >
+                              <SendIcon />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                     </Stack>
                   </Grid>
                 </Grid>
