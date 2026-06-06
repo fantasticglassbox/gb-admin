@@ -321,8 +321,15 @@ const PairDeviceByScan: React.FC<Props> = ({
               <Box
                 id={QR_REGION_ID}
                 sx={{
+                  // Capped square so the camera preview doesn't take
+                  // ~70% of a phone viewport. The qrbox finder
+                  // overlay is 240px; a 280px container hugs it
+                  // closely while keeping the outlet picker + Pair
+                  // button visible below the fold.
                   width: '100%',
+                  maxWidth: 280,
                   aspectRatio: '1 / 1',
+                  mx: 'auto',
                   bgcolor: '#000',
                   borderRadius: 2,
                   overflow: 'hidden',

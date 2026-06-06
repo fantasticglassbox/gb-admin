@@ -47,7 +47,6 @@ import {
   Refresh as RefreshIcon,
   Visibility as ViewIcon,
   LocationOn as LocationIcon,
-  GetApp as ExportIcon,
   Store as StoreIcon,
   LinkOff as LinkOffIcon,
   ViewQuilt as LayoutIcon,
@@ -349,27 +348,6 @@ const DevicesManagement: React.FC = () => {
     setPage(0);
   };
 
-  const handleExportActivities = async () => {
-    try {
-      const blob = await apiService.exportDeviceActivities({
-        format: 'excel',
-        start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Last 30 days
-        end_date: new Date().toISOString().split('T')[0],
-      });
-      
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `device-activities-${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Error exporting device activities:', error);
-      setError('Failed to export device activities');
-    }
-  };
 
   const emptyFormData = (): typeof formData => ({
     device_name: '',
@@ -692,13 +670,6 @@ const DevicesManagement: React.FC = () => {
           Devices Management
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<ExportIcon />}
-            onClick={handleExportActivities}
-          >
-            Export Activities
-          </Button>
           {/* Venue partners can pair their own devices by scanning the
               QR shown on the device. Admin gets both flows — the
               classic typed-code dialog and the scan drawer. */}
