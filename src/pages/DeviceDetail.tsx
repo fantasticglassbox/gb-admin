@@ -1,227 +1,155 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
+  Alert,
   Box,
-  Paper,
-  Typography,
   Button,
   Card,
   CardContent,
-  Grid,
   Chip,
-  Tabs,
-  Tab,
+  CircularProgress,
+  Divider,
+  IconButton,
+  Link as MuiLink,
+  Paper,
+  Stack,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
-  IconButton,
   Tooltip,
-  CircularProgress,
-  Alert,
-  InputAdornment,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Typography,
 } from '@mui/material';
 import {
-  ArrowBack as BackIcon,
-  LocationOn as LocationIcon,
+  ArrowBack as ArrowBackIcon,
+  Bolt as BoltIcon,
+  Edit as EditIcon,
+  Map as MapIcon,
+  OpenInNew as OpenInNewIcon,
   Refresh as RefreshIcon,
-  Search as SearchIcon,
-  Visibility as ViewIcon,
 } from '@mui/icons-material';
-import { DeviceResponse, Merchant, ActiveAdvertisement } from '../types';
+import {
+  DeviceResponse,
+  Layout,
+  Outlet,
+  PlaylistAd,
+  VenuePartner,
+} from '../types';
 import { apiService } from '../services/api';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`device-tabpanel-${index}`}
-      aria-labelledby={`device-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
+// Full-page device detail. Replaces the legacy DeviceDetail (which
+// rendered the old Merchant + Advertisement model) with a view built
+// around the V2 shape: venue → outlet → device, optional layout, live
+// playlist, GPS coordinates.
+//
+// Edit / Assign / Layout flows live in the DevicesManagement drawers
+// and are reached via the "Edit on list" button. This page is for
+// reading state and triggering quick actions (Pull latest, Open in
+// Maps) — it does not duplicate the form drawers.
 const DeviceDetail: React.FC = () => {
   const { deviceId } = useParams<{ deviceId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  console.log('DeviceDetail component loaded with deviceId:', deviceId); // Debug log
-  
-  const [device, setDevice] = useState<DeviceResponse | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [merchants, setMerchants] = useState<Merchant[]>([]);
-  const [deviceMerchant, setDeviceMerchant] = useState<Merchant | null>(null);
-  const [activeAds, setActiveAds] = useState<ActiveAdvertisement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [adsLoading, setAdsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [tabValue, setTabValue] = useState(0);
-  
-  // Ads pagination and filtering
-  const [adsPage, setAdsPage] = useState(0);
-  const [adsRowsPerPage, setAdsRowsPerPage] = useState(10);
-  const [adsSearchTerm, setAdsSearchTerm] = useState('');
-  const [adsStatusFilter, setAdsStatusFilter] = useState<string>('');
 
-  const loadDevice = async () => {
+  const [device, setDevice] = useState<DeviceResponse | null>(null);
+  const [venue, setVenue] = useState<VenuePartner | null>(null);
+  const [outlet, setOutlet] = useState<Outlet | null>(null);
+  const [layout, setLayout] = useState<Layout | null>(null);
+  const [playlist, setPlaylist] = useState<PlaylistAd[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pulling, setPulling] = useState(false);
+  const [pullMsg, setPullMsg] = useState<string | null>(null);
+
+  const pathPrefix = useMemo(
+    () => (window.location.pathname.split('/devices')[0] || '/admin'),
+    [],
+  );
+
+  const load = useCallback(async () => {
     if (!deviceId) return;
-    
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      console.log('Loading device with ID:', deviceId); // Debug log
-      const deviceData = await apiService.getDevice(deviceId);
-      console.log('Device data received:', deviceData); // Debug log
-      setDevice(deviceData);
-    } catch (err: any) {
-      console.error('Failed to load device:', err); // Debug log
-      setError(err.response?.data?.message || 'Failed to load device');
+      const d = (await apiService.getDevice(deviceId)) as DeviceResponse;
+      setDevice(d);
+
+      const tasks: Promise<unknown>[] = [];
+      if (d.venue_partner_id) {
+        tasks.push(
+          apiService
+            .listVenuePartners({ limit: 1000 })
+            .then((res) => {
+              const v = res.data.find((x) => x.id === d.venue_partner_id);
+              if (v) setVenue(v);
+            })
+            .catch(() => {}),
+        );
+      }
+      if (d.outlet_id) {
+        tasks.push(
+          apiService
+            .listOutlets({ limit: 1000 })
+            .then((res) => {
+              const o = res.data.find((x) => x.id === d.outlet_id);
+              if (o) setOutlet(o);
+            })
+            .catch(() => {}),
+        );
+      }
+      if (d.layout_id) {
+        tasks.push(
+          apiService
+            .listLayouts()
+            .then((all) => {
+              const l = all.find((x) => x.id === d.layout_id);
+              if (l) setLayout(l);
+            })
+            .catch(() => {}),
+        );
+      }
+      tasks.push(
+        apiService
+          .getDevicePlaylist(d.id)
+          .then((ads) => setPlaylist(ads))
+          .catch(() => setPlaylist([])),
+      );
+      await Promise.all(tasks);
+    } catch (e: any) {
+      setError(e?.response?.data?.error || e?.message || 'Failed to load device');
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadMerchants = async () => {
-    try {
-      const response = await apiService.getMerchants({ limit: 1000 });
-      setMerchants(response.data);
-    } catch (err: any) {
-      console.error('Failed to load merchants:', err);
-    }
-  };
-
-  const loadDeviceMerchant = async () => {
-    if (!deviceId) return;
-    
-    try {
-      const merchant = await apiService.getDeviceMerchant(deviceId);
-      setDeviceMerchant(merchant);
-      console.log('Device merchant loaded:', merchant); // Debug log
-    } catch (err: any) {
-      console.error('Failed to load device merchant:', err);
-      setDeviceMerchant(null);
-    }
-  };
-
-  const loadActiveAds = async () => {
-    if (!deviceId) return;
-    
-    try {
-      setAdsLoading(true);
-      const response = await apiService.getDevicesWithActiveAds();
-      if (response && Array.isArray(response.devices)) {
-        const deviceWithAds = response.devices.find(d => d.id === deviceId);
-        setActiveAds(deviceWithAds?.active_ads || []);
-      } else {
-        setActiveAds([]);
-      }
-    } catch (err: any) {
-      console.error('Failed to load device active ads:', err);
-      setActiveAds([]);
-    } finally {
-      setAdsLoading(false);
-    }
-  };
-
-  const getMerchantName = (): string => {
-    // First check if device has merchant_name from the API
-    if (device && (device as any).merchant_name) {
-      return (device as any).merchant_name;
-    }
-    // Fallback to separately loaded merchant
-    return deviceMerchant ? deviceMerchant.name : 'Unassigned';
-  };
-
-  useEffect(() => {
-    if (deviceId) {
-      loadDevice();
-      loadMerchants();
-      loadDeviceMerchant();
-      loadActiveAds();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString();
-  };
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  // Helper function to parse device detail JSON
-  const getDeviceDetail = (field: string): string => {
-    if (!device) return 'N/A';
-    
+  const handlePullLatest = async () => {
+    if (!device) return;
+    setPulling(true);
+    setPullMsg(null);
     try {
-      const detail = (device as any).detail;
-      if (detail && typeof detail === 'string') {
-        const parsed = JSON.parse(detail);
-        return parsed[field] || (device as any)[field] || 'N/A';
-      }
-      return (device as any)[field] || 'N/A';
-    } catch {
-      return (device as any)[field] || 'N/A';
+      await apiService.forceSyncDevice(device.id);
+      setPullMsg('Sync token bumped — device will refetch on next heartbeat.');
+    } catch (e: any) {
+      setPullMsg(`Failed: ${e?.response?.data?.error || e?.message || 'unknown error'}`);
+    } finally {
+      setPulling(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'published': return 'success';
-      case 'draft': return 'warning';
-      case 'rejected': return 'error';
-      case 'inactive': return 'default';
-      default: return 'default';
-    }
+  const handleEdit = () => {
+    // Reuses the drawer-based form on the list page. We pass ?edit=<id>
+    // so DevicesManagement can auto-open the drawer (cheap; matches
+    // how /campaigns/:id/edit reuses the campaign editor).
+    navigate(`${pathPrefix}/devices?edit=${device?.id ?? ''}`);
   };
-
-  const getTypeColor = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'video': return 'primary';
-      case 'image': return 'secondary';
-      case 'html': return 'info';
-      default: return 'default';
-    }
-  };
-
-  // Filter active ads
-  const filteredAds = activeAds.filter(ad => {
-    const matchesSearch = !adsSearchTerm || 
-      ad.title?.toLowerCase().includes(adsSearchTerm.toLowerCase()) ||
-      ad.partner_name?.toLowerCase().includes(adsSearchTerm.toLowerCase());
-    
-    const matchesStatus = !adsStatusFilter || ad.state === adsStatusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  // Paginate filtered ads
-  const paginatedAds = filteredAds.slice(
-    adsPage * adsRowsPerPage,
-    adsPage * adsRowsPerPage + adsRowsPerPage
-  );
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
         <CircularProgress />
       </Box>
     );
@@ -229,327 +157,373 @@ const DeviceDetail: React.FC = () => {
 
   if (error || !device) {
     return (
-      <Box>
-        <Box display="flex" alignItems="center" mb={3}>
-          <Button
-            startIcon={<BackIcon />}
-            onClick={() => navigate('/devices')}
-            sx={{ mr: 2 }}
-          >
-            Back to Devices
-          </Button>
-          <Typography variant="h4">Device Not Found</Typography>
-        </Box>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+      <Box sx={{ p: 3 }}>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(`${pathPrefix}/devices`)}
+          sx={{ mb: 2 }}
+        >
+          Back to devices
+        </Button>
+        <Alert severity="error">{error || 'Device not found'}</Alert>
       </Box>
     );
   }
 
+  const statusColor: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
+    active: 'success',
+    inactive: 'default',
+    maintenance: 'warning',
+    offline: 'error',
+  };
+
+  const mapsHref =
+    device.location?.latitude != null && device.location?.longitude != null
+      ? `https://www.google.com/maps?q=${device.location.latitude},${device.location.longitude}`
+      : null;
+
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box display="flex" alignItems="center">
-          <Button
-            startIcon={<BackIcon />}
-            onClick={() => {
-              const pathPrefix = location.pathname.split('/devices')[0];
-              navigate(`${pathPrefix}/devices`);
-            }}
-            sx={{ mr: 2 }}
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1280, mx: 'auto' }}>
+      {/* Header */}
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Tooltip title="Back to devices">
+          <IconButton onClick={() => navigate(`${pathPrefix}/devices`)} size="small">
+            <ArrowBackIcon />
+          </IconButton>
+        </Tooltip>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.secondary', letterSpacing: 1.2, fontWeight: 600 }}
           >
-            Back to Devices
-          </Button>
-          <Typography variant="h4" component="h1">
-            Device Details: {(device as any).device_name || device.name || 'Unknown Device'}
+            DEVICE
+          </Typography>
+          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mt: 0.5 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700 }} noWrap>
+              {device.name || device.device_id}
+            </Typography>
+            <Chip
+              label={device.status.toUpperCase()}
+              color={statusColor[device.status] || 'default'}
+              size="small"
+              sx={{ fontWeight: 600 }}
+            />
+          </Stack>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+            {device.device_id}
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={() => {
-            loadDevice();
-            loadDeviceMerchant();
-            loadActiveAds();
-          }}
+        <Stack direction="row" spacing={1}>
+          <Button
+            startIcon={pulling ? <CircularProgress size={16} /> : <BoltIcon />}
+            variant="outlined"
+            onClick={handlePullLatest}
+            disabled={pulling}
+          >
+            Pull latest
+          </Button>
+          <Button startIcon={<RefreshIcon />} onClick={() => void load()}>
+            Refresh
+          </Button>
+          <Button startIcon={<EditIcon />} variant="contained" onClick={handleEdit}>
+            Edit
+          </Button>
+        </Stack>
+      </Stack>
+
+      {pullMsg && (
+        <Alert
+          severity={pullMsg.startsWith('Failed') ? 'error' : 'success'}
+          onClose={() => setPullMsg(null)}
+          sx={{ mb: 2 }}
         >
-          Refresh
-        </Button>
-      </Box>
+          {pullMsg}
+        </Alert>
+      )}
 
-      <Paper sx={{ mb: 2 }}>
-        <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-          <Tab label="Device Details" />
-          <Tab label="Active Advertisements" />
-        </Tabs>
-      </Paper>
+      {/* Two-column grid (right column collapses below 900px) */}
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2.5,
+          gridTemplateColumns: { xs: '1fr', md: '1fr 360px' },
+          alignItems: 'start',
+        }}
+      >
+        {/* LEFT column */}
+        <Stack spacing={2.5}>
+          {/* Layout card */}
+          <Card>
+            <CardContent>
+              <SectionHeader title="Layout" />
+              {layout ? (
+                <>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    {layout.display_name}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    {layout.zones.length} zone{layout.zones.length === 1 ? '' : 's'}
+                    {layout.description ? ` · ${layout.description}` : ''}
+                  </Typography>
+                  <Box sx={{ mt: 2 }}>
+                    <ZonePreview zones={layout.zones} />
+                  </Box>
+                </>
+              ) : device.layout_id ? (
+                <EmptyHint text="Layout assigned but not in catalog." />
+              ) : (
+                <EmptyHint text="No layout assigned — device renders fullscreen." />
+              )}
+            </CardContent>
+          </Card>
 
-      <TabPanel value={tabValue} index={0}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Basic Information
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Name:</strong> {(device as any).device_name || device.name}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Device ID:</strong> {device.device_id}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Merchant:</strong> {getMerchantName()}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Type:</strong> {((device as any).device_type || 'unknown').toUpperCase()}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Status:</strong>
-                  <Chip 
-                    label={((device as any).status || 'unknown').toUpperCase()} 
-                    color={(device as any).status === 'ACTIVE' ? 'success' : 'default'}
-                    size="small"
-                    sx={{ ml: 1 }}
-                  />
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Created:</strong> {formatDate((device as any).created_at || device.created_at)}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Last Seen:</strong> {(device as any).last_seen ? formatDate((device as any).last_seen) : 'Never'}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Device Information
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Model:</strong> {getDeviceDetail('model')}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Manufacturer:</strong> {getDeviceDetail('manufacturer')}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Serial Number:</strong> {getDeviceDetail('sn') !== 'N/A' ? getDeviceDetail('sn') : getDeviceDetail('serial_number')}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>OS:</strong> {(device as any).operating_system || 'N/A'}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>OS Version:</strong> {getDeviceDetail('os_version')}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>App Version:</strong> {(device as any).app_version || 'N/A'}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Screen Resolution:</strong> {(device as any).screen_resolution || 'N/A'}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          {((device as any).address || (device as any).latitude || (device as any).longitude) && (
-            <Grid item xs={12}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    Location Information
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>Address:</strong> {(device as any).address || 'N/A'}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>City:</strong> {(device as any).city || 'N/A'}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>District:</strong> {(device as any).district || 'N/A'}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>Province:</strong> {(device as any).province || 'N/A'}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>Location Name:</strong> {(device as any).location_name || 'N/A'}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1 }}>
-                    <strong>Zone:</strong> {(device as any).zone || 'N/A'}
-                  </Typography>
-                  {(device as any).latitude && (device as any).longitude && (
-                    <Typography variant="body2">
-                      <LocationIcon fontSize="small" sx={{ verticalAlign: 'middle', mr: 0.5 }} />
-                      <strong>Coordinates:</strong> {(device as any).latitude}, {(device as any).longitude}
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-        </Grid>
-      </TabPanel>
-
-      <TabPanel value={tabValue} index={1}>
-        <Paper sx={{ mb: 2 }}>
-          <Box p={2} display="flex" gap={2} alignItems="center" flexWrap="wrap">
-              <TextField
-                placeholder="Search advertisements..."
-                value={adsSearchTerm}
-                onChange={(e) => {
-                  setAdsSearchTerm(e.target.value);
-                  setAdsPage(0); // Reset to first page when searching
-                }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{ minWidth: 300 }}
+          {/* Playlist card. Multi-zone layouts produce one row per asset,
+              so a single campaign with a main + sidebar + ticker asset
+              surfaces as 3 rows here. The Zone column makes that
+              breakdown visible — without it the rows look like
+              accidental duplicates. */}
+          <Card>
+            <CardContent>
+              <SectionHeader
+                title="Current playlist"
+                hint={`${playlist.length} asset${playlist.length === 1 ? '' : 's'} · ${uniqueCampaignCount(playlist)} campaign${uniqueCampaignCount(playlist) === 1 ? '' : 's'}`}
               />
-              
-              <FormControl sx={{ minWidth: 150 }}>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={adsStatusFilter}
-                  label="Status"
-                  onChange={(e) => {
-                    setAdsStatusFilter(e.target.value);
-                    setAdsPage(0); // Reset to first page when filtering
-                  }}
-                >
-                  <MenuItem value="">All Status</MenuItem>
-                  <MenuItem value="PUBLISHED">Published</MenuItem>
-                  <MenuItem value="DRAFT">Draft</MenuItem>
-                  <MenuItem value="REJECTED">Rejected</MenuItem>
-                  <MenuItem value="INACTIVE">Inactive</MenuItem>
-                </Select>
-              </FormControl>
-
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => {
-                loadActiveAds();
-                setAdsPage(0); // Reset to first page
-              }}
-            >
-              Refresh Ads
-            </Button>
-          </Box>
-        </Paper>
-
-        <Paper>
-          {adsLoading ? (
-            <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <>
-              <TableContainer>
-                <Table>
+              {playlist.length === 0 ? (
+                <EmptyHint text="No ads currently scheduled for this device." />
+              ) : (
+                <Table size="small">
                   <TableHead>
                     <TableRow>
+                      <TableCell>Zone</TableCell>
                       <TableCell>Title</TableCell>
-                      <TableCell>Partner</TableCell>
                       <TableCell>Type</TableCell>
-                      <TableCell>Duration</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Start Date</TableCell>
-                      <TableCell>End Date</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell align="right">Duration</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {paginatedAds.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} align="center">
-                          <Typography variant="body1" color="text.secondary" py={4}>
-                            No active advertisements found for this device
-                          </Typography>
+                    {playlist.map((ad) => (
+                      <TableRow key={ad.id}>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={ad.target_zone_slug || 'main'}
+                            sx={{
+                              fontFamily: 'monospace',
+                              fontSize: 11,
+                              height: 22,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>{ad.title || ad.id}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={ad.content_type || '—'}
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          {ad.duration_seconds ? `${ad.duration_seconds}s` : '—'}
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      paginatedAds.map((ad, index) => (
-                        <TableRow key={ad.id || index}>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight="bold">
-                              {ad.title || 'Untitled Ad'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {ad.partner_name || 'Unknown Partner'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={ad.type || 'Unknown'} 
-                              size="small"
-                              color={getTypeColor(ad.type || '')}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {ad.duration || 0}s
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip 
-                              label={ad.state || 'Unknown'} 
-                              size="small"
-                              color={getStatusColor(ad.state || '')}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {ad.published_time_start ? new Date(ad.published_time_start).toLocaleDateString() : 'N/A'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {ad.published_time_end ? new Date(ad.published_time_end).toLocaleDateString() : 'N/A'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="right">
-                            <Tooltip title="View Advertisement">
-                              <IconButton size="small">
-                                <ViewIcon />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
+                    ))}
                   </TableBody>
                 </Table>
-              </TableContainer>
+              )}
+            </CardContent>
+          </Card>
+        </Stack>
 
-              <TablePagination
-                component="div"
-                count={filteredAds.length}
-                page={adsPage}
-                onPageChange={(_, newPage) => setAdsPage(newPage)}
-                rowsPerPage={adsRowsPerPage}
-                onRowsPerPageChange={(e) => {
-                  setAdsRowsPerPage(parseInt(e.target.value, 10));
-                  setAdsPage(0);
-                }}
-                rowsPerPageOptions={[5, 10, 25, 50]}
+        {/* RIGHT column */}
+        <Stack spacing={2.5}>
+          {/* Assignment card */}
+          <Card>
+            <CardContent>
+              <SectionHeader title="Assignment" />
+              <KeyValueRow
+                label="Venue"
+                value={venue?.display_name || venue?.legal_name || (device.venue_partner_id ? 'Unknown venue' : '—')}
               />
-            </>
-          )}
-        </Paper>
-      </TabPanel>
+              <KeyValueRow
+                label="Outlet"
+                value={outlet?.display_name || (device.outlet_id ? 'Unknown outlet' : 'Not assigned')}
+              />
+              {outlet?.address && (
+                <KeyValueRow label="Address" value={outlet.address} />
+              )}
+              {outlet?.city && (
+                <KeyValueRow label="City" value={`${outlet.city}, ${outlet.province}`} />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Location card */}
+          <Card>
+            <CardContent>
+              <SectionHeader title="Location" icon={<MapIcon fontSize="small" />} />
+              {device.location?.latitude != null && device.location?.longitude != null ? (
+                <>
+                  <KeyValueRow
+                    label="Coordinates"
+                    value={
+                      <Typography
+                        component="span"
+                        sx={{ fontFamily: 'monospace', fontSize: 13 }}
+                      >
+                        {device.location.latitude.toFixed(5)},{' '}
+                        {device.location.longitude.toFixed(5)}
+                      </Typography>
+                    }
+                  />
+                  {device.location.address && (
+                    <KeyValueRow label="Address" value={device.location.address} />
+                  )}
+                  {mapsHref && (
+                    <MuiLink
+                      href={mapsHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        mt: 1.5,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        fontSize: 13,
+                      }}
+                    >
+                      Open in Google Maps <OpenInNewIcon sx={{ fontSize: 14 }} />
+                    </MuiLink>
+                  )}
+                </>
+              ) : (
+                <EmptyHint text="No GPS captured. Devices paired before the location feature shipped have no coordinates." />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Device info card */}
+          <Card>
+            <CardContent>
+              <SectionHeader title="Device" />
+              <KeyValueRow label="Type" value={device.device_type.toUpperCase()} />
+              {device.device_info?.model && (
+                <KeyValueRow label="Model" value={device.device_info.model} />
+              )}
+              {device.device_info?.os && (
+                <KeyValueRow label="OS" value={device.device_info.os} />
+              )}
+              {device.device_info?.app_version && (
+                <KeyValueRow label="App" value={device.device_info.app_version} />
+              )}
+              {device.device_info?.screen_resolution && (
+                <KeyValueRow label="Screen" value={device.device_info.screen_resolution} />
+              )}
+              <Divider sx={{ my: 1.5 }} />
+              <KeyValueRow
+                label="Created"
+                value={new Date(device.created_at).toLocaleDateString()}
+              />
+            </CardContent>
+          </Card>
+        </Stack>
+      </Box>
     </Box>
   );
 };
+
+// --- helpers ---
+
+// Distinct campaigns in the playlist. We key on approval_id because
+// each campaign × venue has exactly one approval row, and a single
+// device only ever sees one venue's approvals.
+const uniqueCampaignCount = (ads: PlaylistAd[]): number =>
+  new Set(ads.map((a) => a.approval_id).filter(Boolean)).size;
+
+
+const SectionHeader: React.FC<{ title: string; hint?: string; icon?: React.ReactNode }> = ({
+  title,
+  hint,
+  icon,
+}) => (
+  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+    {icon}
+    <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 1.2 }}>
+      {title}
+    </Typography>
+    {hint && (
+      <Typography variant="caption" sx={{ color: 'text.disabled', ml: 'auto' }}>
+        {hint}
+      </Typography>
+    )}
+  </Stack>
+);
+
+const KeyValueRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
+  <Stack direction="row" spacing={2} sx={{ py: 0.75, alignItems: 'baseline' }}>
+    <Typography
+      variant="caption"
+      sx={{ color: 'text.secondary', minWidth: 92, fontWeight: 600 }}
+    >
+      {label}
+    </Typography>
+    <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-word' }}>
+      {value || '—'}
+    </Typography>
+  </Stack>
+);
+
+const EmptyHint: React.FC<{ text: string }> = ({ text }) => (
+  <Typography variant="body2" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+    {text}
+  </Typography>
+);
+
+// Renders a layout's zones as proportional rectangles inside a
+// 16:9-ish frame. Pure-CSS preview — keeps the page dep-free.
+const ZonePreview: React.FC<{ zones: { slug: string; x_pct: number; y_pct: number; w_pct: number; h_pct: number }[] }> = ({
+  zones,
+}) => (
+  <Paper
+    variant="outlined"
+    sx={{
+      position: 'relative',
+      width: '100%',
+      aspectRatio: '16 / 9',
+      bgcolor: 'grey.50',
+      overflow: 'hidden',
+    }}
+  >
+    {zones.map((z, idx) => (
+      <Box
+        key={z.slug}
+        sx={{
+          position: 'absolute',
+          left: `${z.x_pct}%`,
+          top: `${z.y_pct}%`,
+          width: `${z.w_pct}%`,
+          height: `${z.h_pct}%`,
+          border: '1px dashed',
+          borderColor: 'primary.main',
+          bgcolor: idx % 2 === 0 ? 'primary.50' : 'primary.100',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 11,
+          fontWeight: 600,
+          color: 'primary.dark',
+          textTransform: 'uppercase',
+          letterSpacing: 1,
+        }}
+      >
+        {z.slug}
+      </Box>
+    ))}
+  </Paper>
+);
 
 export default DeviceDetail;

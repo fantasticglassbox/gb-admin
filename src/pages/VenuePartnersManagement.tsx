@@ -5,7 +5,7 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
+  Drawer,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -35,25 +35,12 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Search as SearchIcon,
-  Storefront as OutletIcon,
   Refresh as RefreshIcon,
-  Close as CloseIcon,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
-import {
-  Outlet,
-  OutletType,
-  VenuePartner,
-  VenuePartnerStatus,
-  VenuePartnerTier,
-} from '../types';
+import { VenuePartner, VenuePartnerStatus } from '../types';
 
-const TIERS: VenuePartnerTier[] = ['NATIONAL', 'REGIONAL', 'SINGLE'];
 const STATUSES: VenuePartnerStatus[] = ['ACTIVE', 'SUSPENDED', 'CHURNED'];
-const OUTLET_TYPES: OutletType[] = [
-  'MALL', 'CONVENIENCE_STORE', 'FNB', 'TRANSIT', 'OFFICE',
-  'KOST', 'HOSPITAL', 'GYM', 'SALON', 'EDUCATION', 'GOVERNMENT', 'OTHER',
-];
 
 const EMPTY_PARTNER: Partial<VenuePartner> = {
   legal_name: '',
@@ -68,23 +55,6 @@ const EMPTY_PARTNER: Partial<VenuePartner> = {
   contact_email: '',
   contact_phone_wa: '',
   default_revenue_share_pct: 50,
-  tier: 'SINGLE',
-  status: 'ACTIVE',
-};
-
-const EMPTY_OUTLET: Partial<Outlet> = {
-  display_name: '',
-  address: '',
-  city: '',
-  province: '',
-  country: 'Indonesia',
-  postal_code: '',
-  timezone: 'Asia/Jakarta',
-  outlet_type: 'OTHER',
-  halal_only: false,
-  permitted_categories: '',
-  blocked_categories: '',
-  operating_hours: '',
   status: 'ACTIVE',
 };
 
@@ -96,7 +66,6 @@ const VenuePartnersManagement: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [tierFilter, setTierFilter] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -105,14 +74,12 @@ const VenuePartnersManagement: React.FC = () => {
   const [editingPartner, setEditingPartner] = useState<Partial<VenuePartner>>(EMPTY_PARTNER);
   const [savingPartner, setSavingPartner] = useState(false);
 
-  // ── outlets drawer/dialog ───────────────────────────────────────────
-  const [outletsDialogOpen, setOutletsDialogOpen] = useState(false);
-  const [outletsFor, setOutletsFor] = useState<VenuePartner | null>(null);
-  const [outlets, setOutlets] = useState<Outlet[]>([]);
-  const [outletsLoading, setOutletsLoading] = useState(false);
-  const [outletFormOpen, setOutletFormOpen] = useState(false);
-  const [editingOutlet, setEditingOutlet] = useState<Partial<Outlet>>(EMPTY_OUTLET);
-  const [savingOutlet, setSavingOutlet] = useState(false);
+  // Outlet management moved to /admin/outlets (its own page). The
+  // nested master-detail that used to live here is gone — admin
+  // navigates between the two pages instead. Removing the nesting
+  // also removed: outletsDialogOpen, outlets list state, outlet form
+  // state, the openOutlets/openCreateOutlet/openEditOutlet/saveOutlet
+  // handlers, and the per-row "Outlets (N)" button.
 
   const loadPartners = useCallback(async () => {
     try {
@@ -121,7 +88,6 @@ const VenuePartnersManagement: React.FC = () => {
       const filters: any = { page: page + 1, limit: rowsPerPage };
       if (search) filters.search = search;
       if (statusFilter) filters.status = statusFilter;
-      if (tierFilter) filters.tier = tierFilter;
       const res = await apiService.listVenuePartners(filters);
       setRows(res.data);
       setTotal(res.pagination.total);
@@ -130,7 +96,7 @@ const VenuePartnersManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, statusFilter, tierFilter]);
+  }, [page, rowsPerPage, search, statusFilter]);
 
   useEffect(() => { loadPartners(); }, [loadPartners]);
 
@@ -160,51 +126,9 @@ const VenuePartnersManagement: React.FC = () => {
     }
   };
 
-  // ── outlets ────────────────────────────────────────────────────────
-  const openOutlets = async (vp: VenuePartner) => {
-    setOutletsFor(vp);
-    setOutletsDialogOpen(true);
-    setOutletsLoading(true);
-    try {
-      const res = await apiService.listOutletsForVenuePartner(vp.id, { limit: 100 });
-      setOutlets(res.data);
-    } catch (e: any) {
-      setError(e?.response?.data?.error || 'Failed to load outlets');
-    } finally {
-      setOutletsLoading(false);
-    }
-  };
-  const openCreateOutlet = () => {
-    setEditingOutlet({ ...EMPTY_OUTLET, venue_partner_id: outletsFor?.id });
-    setOutletFormOpen(true);
-  };
-  const openEditOutlet = (o: Outlet) => {
-    setEditingOutlet(o);
-    setOutletFormOpen(true);
-  };
-  const saveOutlet = async () => {
-    if (!outletsFor) return;
-    setSavingOutlet(true);
-    try {
-      if (editingOutlet.id) {
-        await apiService.updateOutlet(editingOutlet.id, editingOutlet);
-      } else {
-        await apiService.createOutlet({ ...editingOutlet, venue_partner_id: outletsFor.id });
-      }
-      setOutletFormOpen(false);
-      // refresh outlets list + partner row (for outlet_count)
-      const res = await apiService.listOutletsForVenuePartner(outletsFor.id, { limit: 100 });
-      setOutlets(res.data);
-      await loadPartners();
-    } catch (e: any) {
-      setError(e?.response?.data?.error || 'Save failed');
-    } finally {
-      setSavingOutlet(false);
-    }
-  };
 
   // ── render helpers ─────────────────────────────────────────────────
-  const statusChip = (s: VenuePartnerStatus | OutletStatus) => {
+  const statusChip = (s: VenuePartnerStatus) => {
     const color: Record<string, 'success' | 'warning' | 'default' | 'error'> = {
       ACTIVE: 'success', SUSPENDED: 'warning', CHURNED: 'default',
       PAUSED: 'warning', DECOMMISSIONED: 'default',
@@ -251,14 +175,6 @@ const VenuePartnersManagement: React.FC = () => {
               {STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Tier</InputLabel>
-            <Select value={tierFilter} label="Tier"
-              onChange={(e) => { setTierFilter(e.target.value); setPage(0); }}>
-              <MenuItem value="">All</MenuItem>
-              {TIERS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-            </Select>
-          </FormControl>
         </Stack>
       </Paper>
 
@@ -268,8 +184,6 @@ const VenuePartnersManagement: React.FC = () => {
             <TableRow>
               <TableCell>Display name</TableCell>
               <TableCell>Legal name / NPWP</TableCell>
-              <TableCell>Tier</TableCell>
-              <TableCell>Outlets</TableCell>
               <TableCell>Rev-share %</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Actions</TableCell>
@@ -277,11 +191,11 @@ const VenuePartnersManagement: React.FC = () => {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}><CircularProgress size={24} /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}><CircularProgress size={24} /></TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+              <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                 <Typography variant="body2" color="text.secondary">
-                  {search || statusFilter || tierFilter ? 'No match' : 'No venue partners yet — onboard your first one'}
+                  {search || statusFilter ? 'No match' : 'No venue partners yet — onboard your first one'}
                 </Typography>
               </TableCell></TableRow>
             ) : (
@@ -291,12 +205,6 @@ const VenuePartnersManagement: React.FC = () => {
                   <TableCell>
                     <Typography variant="body2">{vp.legal_name}</Typography>
                     <Typography variant="caption" color="text.secondary">{vp.npwp || '—'}</Typography>
-                  </TableCell>
-                  <TableCell><Chip size="small" label={vp.tier} variant="outlined" /></TableCell>
-                  <TableCell>
-                    <Button size="small" startIcon={<OutletIcon />} onClick={() => openOutlets(vp)}>
-                      {vp.outlet_count ?? 0}
-                    </Button>
                   </TableCell>
                   <TableCell>{vp.default_revenue_share_pct?.toFixed(2)}%</TableCell>
                   <TableCell>{statusChip(vp.status)}</TableCell>
@@ -321,8 +229,13 @@ const VenuePartnersManagement: React.FC = () => {
         />
       </TableContainer>
 
-      {/* ── Venue Partner create / edit dialog ───────────────────────── */}
-      <Dialog open={partnerDialogOpen} onClose={() => setPartnerDialogOpen(false)} maxWidth="md" fullWidth>
+      {/* ── Venue Partner create / edit drawer ───────────────────────── */}
+      <Drawer
+        anchor="right"
+        open={partnerDialogOpen}
+        onClose={() => setPartnerDialogOpen(false)}
+        PaperProps={{ sx: { width: { xs: '100%', md: 720 } } }}
+      >
         <DialogTitle>
           {editingPartner.id ? 'Edit venue partner' : 'New venue partner'}
         </DialogTitle>
@@ -380,22 +293,13 @@ const VenuePartnersManagement: React.FC = () => {
             </Grid>
 
             <Grid item xs={12}><Typography variant="overline" color="text.secondary">Commercial</Typography></Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <TextField fullWidth type="number" label="Default rev-share %"
                 value={editingPartner.default_revenue_share_pct ?? 50}
                 onChange={(e) => setEditingPartner({ ...editingPartner, default_revenue_share_pct: parseFloat(e.target.value) })}
                 inputProps={{ min: 0, max: 100, step: 0.01 }} />
             </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Tier</InputLabel>
-                <Select value={editingPartner.tier || 'SINGLE'} label="Tier"
-                  onChange={(e) => setEditingPartner({ ...editingPartner, tier: e.target.value as VenuePartnerTier })}>
-                  {TIERS.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
                 <Select value={editingPartner.status || 'ACTIVE'} label="Status"
@@ -413,183 +317,11 @@ const VenuePartnersManagement: React.FC = () => {
             {savingPartner ? <CircularProgress size={20} /> : 'Save'}
           </Button>
         </DialogActions>
-      </Dialog>
+      </Drawer>
 
-      {/* ── Outlets dialog (master-detail) ───────────────────────────── */}
-      <Dialog open={outletsDialogOpen} onClose={() => setOutletsDialogOpen(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>
-          <Stack direction="row" alignItems="center">
-            <Box flex={1}>
-              <Typography variant="h6">Outlets — {outletsFor?.display_name}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Physical locations under this venue partner
-              </Typography>
-            </Box>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateOutlet} sx={{ mr: 1 }}>
-              New outlet
-            </Button>
-            <IconButton onClick={() => setOutletsDialogOpen(false)}><CloseIcon /></IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent dividers>
-          {outletsLoading ? (
-            <Box textAlign="center" py={4}><CircularProgress /></Box>
-          ) : outlets.length === 0 ? (
-            <Box textAlign="center" py={4}>
-              <Typography color="text.secondary">No outlets yet — add the first one</Typography>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Display name</TableCell>
-                    <TableCell>City</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Halal</TableCell>
-                    <TableCell>Blocked categories</TableCell>
-                    <TableCell>Rev-share</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right" />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {outlets.map((o) => (
-                    <TableRow key={o.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>{o.display_name}</Typography>
-                        <Typography variant="caption" color="text.secondary">{o.address}</Typography>
-                      </TableCell>
-                      <TableCell>{o.city}</TableCell>
-                      <TableCell><Chip size="small" label={o.outlet_type} variant="outlined" /></TableCell>
-                      <TableCell>{o.halal_only ? <Chip size="small" label="Halal only" color="success" /> : '—'}</TableCell>
-                      <TableCell>
-                        <Typography variant="caption" color="text.secondary">
-                          {o.blocked_categories || '—'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {o.revenue_share_pct_override != null
-                          ? `${o.revenue_share_pct_override.toFixed(2)}% (override)`
-                          : `${outletsFor?.default_revenue_share_pct?.toFixed(2) ?? '—'}%`}
-                      </TableCell>
-                      <TableCell>{statusChip(o.status)}</TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={() => openEditOutlet(o)}><EditIcon fontSize="small" /></IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Outlet form dialog ───────────────────────────────────────── */}
-      <Dialog open={outletFormOpen} onClose={() => setOutletFormOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{editingOutlet.id ? 'Edit outlet' : 'New outlet'}</DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ pt: 1 }}>
-            <Grid item xs={12} md={6}>
-              <TextField required fullWidth label="Display name" value={editingOutlet.display_name || ''}
-                onChange={(e) => setEditingOutlet({ ...editingOutlet, display_name: e.target.value })} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Outlet type</InputLabel>
-                <Select value={editingOutlet.outlet_type || 'OTHER'} label="Outlet type"
-                  onChange={(e) => setEditingOutlet({ ...editingOutlet, outlet_type: e.target.value as OutletType })}>
-                  {OUTLET_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth label="Address" value={editingOutlet.address || ''}
-                onChange={(e) => setEditingOutlet({ ...editingOutlet, address: e.target.value })} />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <TextField fullWidth label="City" value={editingOutlet.city || ''}
-                onChange={(e) => setEditingOutlet({ ...editingOutlet, city: e.target.value })} />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <TextField fullWidth label="Province" value={editingOutlet.province || ''}
-                onChange={(e) => setEditingOutlet({ ...editingOutlet, province: e.target.value })} />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <TextField fullWidth label="Postal" value={editingOutlet.postal_code || ''}
-                onChange={(e) => setEditingOutlet({ ...editingOutlet, postal_code: e.target.value })} />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>Timezone</InputLabel>
-                <Select value={editingOutlet.timezone || 'Asia/Jakarta'} label="Timezone"
-                  onChange={(e) => setEditingOutlet({ ...editingOutlet, timezone: e.target.value })}>
-                  <MenuItem value="Asia/Jakarta">WIB · Asia/Jakarta</MenuItem>
-                  <MenuItem value="Asia/Makassar">WITA · Asia/Makassar</MenuItem>
-                  <MenuItem value="Asia/Jayapura">WIT · Asia/Jayapura</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12}><Typography variant="overline" color="text.secondary">Compliance</Typography></Grid>
-            <Grid item xs={12} md={4}>
-              <FormControlLabel control={
-                <Switch checked={!!editingOutlet.halal_only}
-                  onChange={(e) => setEditingOutlet({ ...editingOutlet, halal_only: e.target.checked })} />
-              } label="Halal only" />
-            </Grid>
-            <Grid item xs={12} md={8}>
-              <TextField fullWidth label="Blocked categories (CSV)"
-                placeholder="TOBACCO,ALCOHOL,POLITICAL"
-                value={editingOutlet.blocked_categories || ''}
-                onChange={(e) => setEditingOutlet({ ...editingOutlet, blocked_categories: e.target.value })} />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth label="Operating hours (HH:MM-HH:MM, comma per-day, blank = 24/7)"
-                placeholder="mon=08:00-22:00,tue=08:00-22:00,..."
-                value={editingOutlet.operating_hours || ''}
-                onChange={(e) => setEditingOutlet({ ...editingOutlet, operating_hours: e.target.value })} />
-            </Grid>
-
-            <Grid item xs={12}><Typography variant="overline" color="text.secondary">Commercial</Typography></Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth type="number" label="Rev-share % override (optional)"
-                value={editingOutlet.revenue_share_pct_override ?? ''}
-                onChange={(e) => setEditingOutlet({
-                  ...editingOutlet,
-                  revenue_share_pct_override: e.target.value === '' ? null : parseFloat(e.target.value),
-                })}
-                helperText={`Inherits ${outletsFor?.default_revenue_share_pct?.toFixed(2) ?? '—'}% if left blank`}
-                inputProps={{ min: 0, max: 100, step: 0.01 }} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select value={editingOutlet.status || 'ACTIVE'} label="Status"
-                  onChange={(e) => setEditingOutlet({ ...editingOutlet, status: e.target.value as OutletStatus })}>
-                  <MenuItem value="ACTIVE">ACTIVE</MenuItem>
-                  <MenuItem value="PAUSED">PAUSED</MenuItem>
-                  <MenuItem value="DECOMMISSIONED">DECOMMISSIONED</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOutletFormOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={savingOutlet || !editingOutlet.display_name}
-            onClick={saveOutlet}>
-            {savingOutlet ? <CircularProgress size={20} /> : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
     </Box>
   );
 };
-
-// re-export the OutletStatus type from index for the helper function above
-type OutletStatus = 'ACTIVE' | 'PAUSED' | 'DECOMMISSIONED';
 
 export default VenuePartnersManagement;

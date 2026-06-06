@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -18,6 +19,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Stack,
   Switch,
   Table,
   TableBody,
@@ -33,21 +35,22 @@ import {
 import {
   Add as AddIcon,
   Edit as EditIcon,
+  FilterAltOff as ClearFilterIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import { Device, Layout, Outlet, OutletType } from '../types';
+import { Device, Layout, Outlet, OutletType, VenuePartner } from '../types';
 import OperatingHoursEditor from '../components/OperatingHoursEditor';
 import { Dialog } from '@mui/material';
 
-// Dedicated outlets page for venue_partner users. Skips the
-// VenuePartner master/detail (which would leak other venues' rows)
-// and goes straight to the outlets list scoped to the user's own
-// venue_partner_id from the JWT.
+// Admin-side Outlets page. Lists every outlet across every venue,
+// scoped via a venue filter. Empty by default — admin picks a venue
+// first, mirroring AdminAdvertisersPage's UX so the two pages feel
+// like a pair.
 //
-// Admin users continue to manage outlets via VenuePartnersManagement
-// (master/detail with nested outlets per venue).
+// Distinct from VenueOutletsPage which is the venue_partner-scoped
+// view (server enforces venue_id from JWT there). Here the admin can
+// pick any venue.
 
 const OUTLET_TYPES: OutletType[] = [
   'MALL', 'CONVENIENCE_STORE', 'FNB', 'TRANSIT', 'OFFICE',
@@ -78,35 +81,52 @@ const statusChip = (status: string) => {
   return <Chip label={status} color={colorMap[status] || 'default'} size="small" />;
 };
 
-const VenueOutletsPage: React.FC = () => {
-  const { user } = useAuth();
-  const venueId = user?.venue_partner_id || '';
+const AdminOutletsPage: React.FC = () => {
+  const [venues, setVenues] = useState<VenuePartner[]>([]);
+  const [venue, setVenue] = useState<VenuePartner | null>(null);
 
   const [rows, setRows] = useState<Outlet[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [loading, setLoading] = useState(true);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Partial<Outlet>>(EMPTY_OUTLET);
   const [saving, setSaving] = useState(false);
+
+  // Layout catalog for the Layout picker. Lazy-loaded once on mount;
+  // tiny payload so fine to keep in page-local state.
   const [layouts, setLayouts] = useState<Layout[]>([]);
+  // Tracks the layout_id that was loaded into the drawer so we can
+  // detect "did the admin change this?" on save — a no-change save
+  // shouldn't prompt the cascade dialog.
   const [originalLayoutId, setOriginalLayoutId] = useState<string>('');
+
+  // Cascade-confirm modal state. Populated after a save when the
+  // outlet's layout_id changed AND there are devices to potentially
+  // restamp.
   const [cascadeOutlet, setCascadeOutlet] = useState<Outlet | null>(null);
   const [cascadeDevices, setCascadeDevices] = useState<Device[]>([]);
   const [cascadeApplying, setCascadeApplying] = useState(false);
 
   useEffect(() => {
-    apiService.listLayouts().then(setLayouts).catch(() => setLayouts([]));
+    apiService
+      .listVenuePartners({ limit: 1000 })
+      .then((r) => setVenues(r.data))
+      .catch((e) => setError(e?.response?.data?.error || 'Failed to load venues'));
+    apiService
+      .listLayouts()
+      .then(setLayouts)
+      .catch(() => setLayouts([]));
   }, []);
 
   const load = useCallback(async () => {
-    if (!venueId) {
-      setError('venue_partner_id missing from your account — contact admin');
-      setLoading(false);
+    if (!venue) {
+      setRows([]);
+      setTotal(0);
       return;
     }
     try {
@@ -115,30 +135,31 @@ const VenueOutletsPage: React.FC = () => {
       const res = await apiService.listOutlets({
         page: page + 1,
         limit: rowsPerPage,
-        venue_partner_id: venueId,
+        venue_partner_id: venue.id,
       });
       setRows(res.data);
       setTotal(res.pagination.total);
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load outlets');
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Failed to load outlets');
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, venueId]);
+  }, [page, rowsPerPage, venue]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const openCreate = () => {
-    setEditing({ ...EMPTY_OUTLET, venue_partner_id: venueId });
+    if (!venue) return;
+    setEditing({ ...EMPTY_OUTLET, venue_partner_id: venue.id });
     setOriginalLayoutId('');
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
   const openEdit = (o: Outlet) => {
     setEditing(o);
     setOriginalLayoutId(o.layout_id || '');
-    setDialogOpen(true);
+    setDrawerOpen(true);
   };
 
   const save = async () => {
@@ -153,19 +174,26 @@ const VenueOutletsPage: React.FC = () => {
         savedOutlet = await apiService.updateOutlet(editing.id, editing);
         setSuccess('Outlet updated');
       } else {
-        savedOutlet = await apiService.createOutlet({ ...editing, venue_partner_id: venueId });
+        savedOutlet = await apiService.createOutlet({
+          ...editing,
+          venue_partner_id: venue?.id,
+        });
         setSuccess('Outlet created');
       }
-      setDialogOpen(false);
+      setDrawerOpen(false);
       await load();
 
-      // Cascade — only on edits where the layout changed.
+      // Cascade decision — only on EDITS where the layout actually
+      // changed. Creates skip the prompt because there are no existing
+      // devices to restamp.
       const newLayout = editing.layout_id || '';
       if (editing.id && newLayout !== originalLayoutId && savedOutlet) {
         try {
           const res = await apiService.listDevicesByOutlet(savedOutlet.id, {
             limit: 1000,
           });
+          // Only prompt for devices NOT already on the new layout —
+          // anything already on it would be a no-op PUT.
           const candidates = res.data.filter(
             (d) => (d.layout_id || '') !== newLayout,
           );
@@ -174,11 +202,13 @@ const VenueOutletsPage: React.FC = () => {
             setCascadeDevices(candidates);
           }
         } catch {
-          // Non-fatal — outlet saved; admin can rerun cascade later.
+          // Non-fatal — the outlet save succeeded; the cascade is a
+          // best-effort follow-up. Admin can still bulk-apply from
+          // /admin/layouts.
         }
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || err?.message || 'Save failed');
+    } catch (e: any) {
+      setError(e?.response?.data?.error || e?.message || 'Save failed');
     } finally {
       setSaving(false);
     }
@@ -211,12 +241,16 @@ const VenueOutletsPage: React.FC = () => {
         <Box>
           <Typography variant="h4">Outlets</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Physical locations under your venue. Each outlet can host one or
-            more devices and carries its own compliance policy (halal flag,
-            blocked ad categories, operating hours).
+            All outlets across the platform, grouped by venue. Pick a
+            venue to see its locations.
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={openCreate}
+          disabled={!venue}
+        >
           New Outlet
         </Button>
       </Box>
@@ -232,12 +266,34 @@ const VenueOutletsPage: React.FC = () => {
         </Alert>
       )}
 
-      <Paper sx={{ mb: 2 }}>
-        <Box p={2} display="flex" gap={2}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={load} disabled={loading}>
+      <Paper sx={{ mb: 2, p: 2 }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Autocomplete
+            value={venue}
+            onChange={(_, v) => {
+              setVenue(v);
+              setPage(0);
+            }}
+            options={venues}
+            getOptionLabel={(v) => v.display_name || v.legal_name || v.id}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            sx={{ minWidth: 320 }}
+            renderInput={(params) => (
+              <TextField {...params} label="Venue" placeholder="Pick a venue" />
+            )}
+          />
+          {venue && (
+            <Tooltip title="Clear filter">
+              <IconButton size="small" onClick={() => setVenue(null)}>
+                <ClearFilterIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Box sx={{ flex: 1 }} />
+          <Button startIcon={<RefreshIcon />} onClick={load} disabled={!venue || loading}>
             Refresh
           </Button>
-        </Box>
+        </Stack>
       </Paper>
 
       <Paper>
@@ -254,17 +310,25 @@ const VenueOutletsPage: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
+              {!venue ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Pick a venue above to view its outlets.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                     <CircularProgress />
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                     <Typography variant="body2" color="text.secondary">
-                      No outlets yet — click "New Outlet" to add your first location.
+                      No outlets for this venue yet — click "New Outlet".
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -317,16 +381,15 @@ const VenueOutletsPage: React.FC = () => {
             setRowsPerPage(parseInt(e.target.value, 10));
             setPage(0);
           }}
-          rowsPerPageOptions={[10, 25, 50]}
+          rowsPerPageOptions={[10, 25, 50, 100]}
         />
       </Paper>
 
-      {/* Create / edit drawer — matches the gb-admin form convention
-          (right-anchored Drawer, not centred Dialog). */}
+      {/* Create / edit drawer — mirrors VenueOutletsPage form. */}
       <Drawer
         anchor="right"
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
         PaperProps={{ sx: { width: { xs: '100%', md: 720 } } }}
       >
         <DialogTitle>{editing.id ? 'Edit Outlet' : 'New Outlet'}</DialogTitle>
@@ -347,10 +410,14 @@ const VenueOutletsPage: React.FC = () => {
                 <Select
                   value={editing.outlet_type || 'OTHER'}
                   label="Type"
-                  onChange={(e) => setEditing({ ...editing, outlet_type: e.target.value as OutletType })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, outlet_type: e.target.value as OutletType })
+                  }
                 >
                   {OUTLET_TYPES.map((t) => (
-                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                    <MenuItem key={t} value={t}>
+                      {t}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -449,42 +516,51 @@ const VenueOutletsPage: React.FC = () => {
                 fullWidth
                 label="Blocked categories (CSV)"
                 value={editing.blocked_categories || ''}
-                onChange={(e) => setEditing({ ...editing, blocked_categories: e.target.value })}
+                onChange={(e) =>
+                  setEditing({ ...editing, blocked_categories: e.target.value })
+                }
                 helperText="Comma-separated. Example: TOBACCO,ALCOHOL,POLITICAL"
               />
             </Grid>
             <Grid item xs={12}>
               <Divider sx={{ mb: 1 }} />
-              <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 1.2 }}>
+              <Typography
+                variant="overline"
+                sx={{ color: 'text.secondary', letterSpacing: 1.2 }}
+              >
                 Operating hours
               </Typography>
               <Box sx={{ mt: 1 }}>
                 <OperatingHoursEditor
                   value={editing.operating_hours || ''}
-                  onChange={(next) => setEditing({ ...editing, operating_hours: next })}
+                  onChange={(next) =>
+                    setEditing({ ...editing, operating_hours: next })
+                  }
                 />
               </Box>
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDrawerOpen(false)}>Cancel</Button>
           <Button onClick={save} variant="contained" disabled={saving}>
             {saving ? <CircularProgress size={20} /> : 'Save'}
           </Button>
         </DialogActions>
       </Drawer>
 
-      {/* Cascade-confirm — same shape as AdminOutletsPage. Fires when
-          the outlet's layout_id changed AND there are devices on a
-          different layout. */}
+      {/* Cascade-confirm — fires when the outlet's layout_id changed
+          AND there are existing devices not already on that layout.
+          Centred Dialog (yes/no decision) per the gb-admin convention. */}
       <Dialog
         open={Boolean(cascadeOutlet)}
         onClose={() => !cascadeApplying && setCascadeOutlet(null)}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Apply new layout to existing devices?</DialogTitle>
+        <DialogTitle>
+          Apply new layout to existing devices?
+        </DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
             <Box component="span" sx={{ fontWeight: 600 }}>
@@ -518,6 +594,7 @@ const VenueOutletsPage: React.FC = () => {
                   display: 'flex',
                   justifyContent: 'space-between',
                   py: 0.5,
+                  fontSize: 13,
                 }}
               >
                 <Typography variant="caption" sx={{ fontWeight: 600 }}>
@@ -533,10 +610,17 @@ const VenueOutletsPage: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCascadeOutlet(null)} disabled={cascadeApplying}>
+          <Button
+            onClick={() => setCascadeOutlet(null)}
+            disabled={cascadeApplying}
+          >
             Keep existing devices unchanged
           </Button>
-          <Button variant="contained" onClick={applyCascade} disabled={cascadeApplying}>
+          <Button
+            variant="contained"
+            onClick={applyCascade}
+            disabled={cascadeApplying}
+          >
             {cascadeApplying ? (
               <CircularProgress size={20} />
             ) : (
@@ -549,4 +633,4 @@ const VenueOutletsPage: React.FC = () => {
   );
 };
 
-export default VenueOutletsPage;
+export default AdminOutletsPage;

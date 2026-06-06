@@ -15,6 +15,7 @@ import {
   IconButton,
   Chip,
   Dialog,
+  Drawer,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -480,12 +481,12 @@ const UsersManagement: React.FC = () => {
         />
       </Paper>
 
-      {/* Create/Edit User Dialog */}
-      <Dialog
+      {/* Create / edit user — right-side drawer (gb-admin form convention). */}
+      <Drawer
+        anchor="right"
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
+        PaperProps={{ sx: { width: { xs: '100%', md: 560 } } }}
       >
         <DialogTitle>
           {dialogMode === 'create' ? 'Create New User' : 'Edit User'}
@@ -613,7 +614,7 @@ const UsersManagement: React.FC = () => {
             {submitting ? <CircularProgress size={20} /> : (dialogMode === 'create' ? 'Create' : 'Update')}
           </Button>
         </DialogActions>
-      </Dialog>
+      </Drawer>
 
       {/* Delete Confirmation Dialog */}
       <Dialog

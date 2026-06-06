@@ -1072,6 +1072,9 @@ export interface Outlet {
   /** NULL = inherit venue partner default. */
   revenue_share_pct_override?: number | null;
   status: OutletStatus;
+  /** Default layout for this outlet. New devices paired in inherit
+   *  this. Empty = no default; new devices land on fullscreen. */
+  layout_id?: string;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -1324,10 +1327,17 @@ export interface SubmitAdApprovalResult {
 export interface PlaylistAd {
   id: string;
   title: string;
-  content: string;
-  type: string;
-  duration: number;
-  state: string;
+  /** Canonical wire field — replaces legacy `content`. */
+  content_url: string;
+  /** Canonical wire field — replaces legacy `type`. */
+  content_type: string;
+  /** Canonical wire field — replaces legacy `duration` (seconds). */
+  duration_seconds: number;
+  /** Layout zone the asset is pinned to. "main" when the device runs
+   *  fullscreen (no layout). Multi-zone campaigns surface as multiple
+   *  rows here — one per zone. */
+  target_zone_slug: string;
+  state?: string;
   approval_id: string;
   venue_partner_id: string;
 }

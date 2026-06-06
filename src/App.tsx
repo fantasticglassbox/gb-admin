@@ -19,6 +19,10 @@ import PartnersManagement from './pages/PartnersManagement';
 import MerchantsManagement from './pages/MerchantsManagement';
 import DevicesManagement from './pages/DevicesManagement';
 import DeviceDetail from './pages/DeviceDetail';
+import AdminAdvertisersPage from './pages/AdminAdvertisersPage';
+import AdminOutletsPage from './pages/AdminOutletsPage';
+import AdminOutletGroupsPage from './pages/AdminOutletGroupsPage';
+import AdminLayoutsPage from './pages/AdminLayoutsPage';
 import AssetsManagement from './pages/AssetsManagement';
 import DetailedRevenueReport from './pages/DetailedRevenueReport';
 import RevenueGeneration from './pages/RevenueGeneration';
@@ -33,6 +37,7 @@ import PublisherDashboard from './pages/PublisherDashboard';
 import VenuePartnerDashboard from './pages/VenuePartnerDashboard';
 import AdApprovalsManagement from './pages/AdApprovalsManagement';
 import AdSubmitTargeting from './pages/AdSubmitTargeting';
+import CampaignCoveragePage from './pages/CampaignCoveragePage';
 import CampaignsManagement from './pages/CampaignsManagement';
 import CampaignEditor from './pages/CampaignEditor';
 import IntegrationsManagement from './pages/IntegrationsManagement';
@@ -74,15 +79,20 @@ function App() {
               <Route path="partners" element={<PartnersManagement />} />
               <Route path="merchants" element={<MerchantsManagement />} />
               <Route path="venue-partners" element={<VenuePartnersManagement />} />
+              <Route path="outlets" element={<AdminOutletsPage />} />
+              <Route path="outlet-groups" element={<AdminOutletGroupsPage />} />
               <Route path="publishers" element={<PublishersManagement />} />
+              <Route path="advertisers" element={<AdminAdvertisersPage />} />
               <Route path="settlements" element={<SettlementsManagement />} />
               <Route path="devices" element={<DevicesManagement />} />
               <Route path="devices/:deviceId" element={<DeviceDetail />} />
+              <Route path="layouts" element={<AdminLayoutsPage />} />
               <Route path="advertisements" element={<AdvertisementsManagement />} />
               <Route path="campaigns" element={<CampaignsManagement />} />
               <Route path="campaigns/new" element={<CampaignEditor />} />
               <Route path="campaigns/:campaignId/edit" element={<CampaignEditor />} />
               <Route path="campaigns/:campaignId/submit" element={<AdSubmitTargeting />} />
+              <Route path="campaigns/:campaignId/coverage" element={<CampaignCoveragePage />} />
               <Route path="assets" element={<AssetsManagement />} />
               <Route path="partner-fees" element={<AlignedPartnerSchemaFeeManagement />} />
               <Route path="business-fees" element={<AlignedBusinessSchemaFeeManagement />} />
@@ -136,6 +146,7 @@ function App() {
               <Route path="campaigns/new" element={<CampaignEditor />} />
               <Route path="campaigns/:campaignId/edit" element={<CampaignEditor />} />
               <Route path="campaigns/:campaignId/submit" element={<AdSubmitTargeting />} />
+              <Route path="campaigns/:campaignId/coverage" element={<CampaignCoveragePage />} />
               {/* Publisher does NOT get an approvals queue — they track
                   submission status from the Campaigns list. The route
                   was removed; bookmarked URLs now 404. */}
@@ -154,7 +165,9 @@ function App() {
             >
               <Route index element={<VenuePartnerDashboard />} />
               <Route path="outlets" element={<VenueOutletsPage />} />
+              <Route path="outlet-groups" element={<AdminOutletGroupsPage />} />
               <Route path="devices" element={<DevicesManagement />} />
+              <Route path="layouts" element={<AdminLayoutsPage />} />
               <Route path="approvals" element={<AdApprovalsManagement />} />
               <Route path="settlements" element={<SettlementsManagement />} />
               <Route path="analytics" element={<VenuePartnerAnalyticsPage />} />

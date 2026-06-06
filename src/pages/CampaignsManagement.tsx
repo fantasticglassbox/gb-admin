@@ -36,8 +36,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
-import LaunchIcon from '@mui/icons-material/Launch';
 import SendIcon from '@mui/icons-material/Send';
+import InsightsIcon from '@mui/icons-material/Insights';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 import { Advertiser, ApprovalSummary, Campaign, CampaignPlaybackRow } from '../types';
@@ -231,15 +231,6 @@ const CampaignsManagement: React.FC = () => {
     }
   };
 
-  const handlePublish = async (c: Campaign) => {
-    try {
-      const updated = await apiService.publishCampaign(c.id);
-      setSuccess('Campaign published');
-      setCampaigns((prev) => prev.map((x) => (x.id === c.id ? updated : x)));
-    } catch (e: any) {
-      setError(e?.response?.data?.error || 'Publish failed');
-    }
-  };
 
   // ---- render ----
 
@@ -403,15 +394,15 @@ const CampaignsManagement: React.FC = () => {
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      {/* Submit-to-venues is a one-way action: it
+                          fans out approval rows AND flips the
+                          campaign DRAFT → PUBLISHED in a single
+                          backend transaction. Once PUBLISHED the
+                          button disappears; the campaign is live and
+                          cannot be un-submitted (the publisher would
+                          create a fresh campaign to retarget). */}
                       {c.state === 'DRAFT' && (c.assets?.length || 0) > 0 && (
-                        <Tooltip title="Publish">
-                          <IconButton size="small" onClick={() => handlePublish(c)}>
-                            <LaunchIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {c.state === 'PUBLISHED' && (c.assets?.length || 0) > 0 && (
-                        <Tooltip title="Submit to venues">
+                        <Tooltip title="Submit to venues (publishes the campaign — irreversible)">
                           <IconButton
                             size="small"
                             onClick={() =>
@@ -422,6 +413,20 @@ const CampaignsManagement: React.FC = () => {
                           </IconButton>
                         </Tooltip>
                       )}
+                      {/* Coverage view — surfaces who the campaign was
+                          submitted to and the decision status. Shown
+                          for both DRAFT (empty state with "Submit now"
+                          shortcut) and PUBLISHED. */}
+                      <Tooltip title="Coverage (submitted venues & status)">
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            navigate(`${basePath}/campaigns/${c.id}/coverage`)
+                          }
+                        >
+                          <InsightsIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       {(hasRole('publisher') || hasRole('admin')) && (
                         <Tooltip title="Delete">
                           <IconButton size="small" onClick={() => handleDelete(c)}>

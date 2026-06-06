@@ -987,6 +987,26 @@ class ApiService {
     await this.apiV2.put(`/devices/${deviceId}/layout`, { layout_id: layoutId });
   }
 
+  /**
+   * Bulk-set a layout across a batch of devices in one transactional
+   * UPDATE. Replaces the client-side fan-out of N PUTs that
+   * DevicesManagement + AdminLayoutsPage used to do — fewer HTTP
+   * round-trips, atomic on the server, returns the affected count
+   * the UI uses for "applied to N devices" toasts.
+   *
+   * Pass an empty layoutId to clear devices back to fullscreen.
+   */
+  async setDevicesBulkLayout(
+    deviceIds: string[],
+    layoutId: string,
+  ): Promise<{ affected: number; layout_id: string }> {
+    const response = await this.apiV2.post('/devices/bulk-layout', {
+      device_ids: deviceIds,
+      layout_id: layoutId,
+    });
+    return response.data?.data ?? response.data;
+  }
+
   async listUnassignedDevices(filters?: FilterOptions): Promise<PaginatedResponse<Device>> {
     const response = await this.apiV2.get('/devices/unassigned', { params: filters });
     const body: any = response.data;
@@ -1323,6 +1343,48 @@ class ApiService {
    */
   async listOutletGroupsForVenue(venueId: string): Promise<OutletGroup[]> {
     const response = await this.apiV2.get(`/venues/${venueId}/outlet-groups`);
+    return response.data?.data || [];
+  }
+
+  // ---- VENUE_CURATED group CRUD (the admin OutletGroups page) ----
+  //
+  // ANY and SYSTEM_AUTO groups are platform-managed (auto-seeded /
+  // self-healing) — only VENUE_CURATED groups go through these
+  // endpoints. The backend repo refuses mutation of the other kinds.
+
+  async createOutletGroup(
+    venueId: string,
+    payload: { display_name: string; description?: string; outlet_ids?: string[] },
+  ): Promise<OutletGroup> {
+    const response = await this.apiV2.post(
+      `/venues/${venueId}/outlet-groups`,
+      payload,
+    );
+    return response.data?.data ?? response.data;
+  }
+
+  async updateOutletGroup(
+    id: string,
+    payload: {
+      display_name: string;
+      description?: string;
+      status?: 'ACTIVE' | 'DEPRECATED';
+      /** Pass undefined to leave members alone; pass [] to clear. */
+      outlet_ids?: string[];
+    },
+  ): Promise<{ id: string }> {
+    const response = await this.apiV2.put(`/outlet-groups/${id}`, payload);
+    return response.data?.data ?? response.data;
+  }
+
+  /** Soft-delete: flips status to DEPRECATED. The group keeps
+   *  resolving for any existing approvals that reference it. */
+  async deleteOutletGroup(id: string): Promise<void> {
+    await this.apiV2.delete(`/outlet-groups/${id}`);
+  }
+
+  async listOutletGroupMembers(id: string): Promise<string[]> {
+    const response = await this.apiV2.get(`/outlet-groups/${id}/members`);
     return response.data?.data || [];
   }
 

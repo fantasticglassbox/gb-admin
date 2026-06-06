@@ -5,8 +5,8 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Dialog,
   DialogActions,
+  Drawer,
   DialogContent,
   DialogTitle,
   FormControl,
@@ -35,15 +35,10 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Search as SearchIcon,
-  Storefront as BrandIcon,
   Refresh as RefreshIcon,
-  Close as CloseIcon,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
 import {
-  Advertiser,
-  AdvertiserCategory,
-  AdvertiserStatus,
   Publisher,
   PublisherKind,
   PublisherStatus,
@@ -53,19 +48,6 @@ import {
 const KINDS: PublisherKind[] = ['AGENCY', 'BRAND_DIRECT', 'RESELLER', 'HOUSE'];
 const TIERS: PublisherTier[] = ['STRATEGIC', 'STANDARD', 'SELF_SERVE'];
 const STATUSES: PublisherStatus[] = ['ACTIVE', 'SUSPENDED', 'CHURNED'];
-
-const ADV_STATUSES: AdvertiserStatus[] = ['ACTIVE', 'PAUSED', 'BLACKLISTED'];
-const ADV_CATEGORIES: AdvertiserCategory[] = [
-  'FOOD', 'BEVERAGE', 'RETAIL', 'BEAUTY', 'FASHION',
-  'TECHNOLOGY', 'AUTOMOTIVE', 'HEALTHCARE', 'FINANCE',
-  'EDUCATION', 'TRAVEL', 'ENTERTAINMENT', 'SPORTS',
-  'REAL_ESTATE', 'TELCO', 'GOVERNMENT',
-  'POLITICAL', 'TOBACCO', 'ALCOHOL', 'GAMBLING',
-  'OTHER',
-];
-
-// Categories that should auto-flag `requires_regulated_slot` on save
-const REGULATED_CATEGORIES: AdvertiserCategory[] = ['POLITICAL', 'TOBACCO', 'ALCOHOL', 'GAMBLING'];
 
 const EMPTY_PUBLISHER: Partial<Publisher> = {
   legal_name: '',
@@ -83,20 +65,6 @@ const EMPTY_PUBLISHER: Partial<Publisher> = {
   kind: 'RESELLER',
   tier: 'STANDARD',
   status: 'ACTIVE',
-};
-
-const EMPTY_ADVERTISER: Partial<Advertiser> = {
-  legal_name: '',
-  display_name: '',
-  logo_url: '',
-  npwp: '',
-  billing_address: '',
-  contact_name: '',
-  contact_email: '',
-  contact_phone_wa: '',
-  category: 'OTHER',
-  status: 'ACTIVE',
-  requires_regulated_slot: false,
 };
 
 const PublishersManagement: React.FC = () => {
@@ -117,14 +85,9 @@ const PublishersManagement: React.FC = () => {
   const [editingPub, setEditingPub] = useState<Partial<Publisher>>(EMPTY_PUBLISHER);
   const [savingPub, setSavingPub] = useState(false);
 
-  // advertisers drawer
-  const [advsDialogOpen, setAdvsDialogOpen] = useState(false);
-  const [advsFor, setAdvsFor] = useState<Publisher | null>(null);
-  const [advs, setAdvs] = useState<Advertiser[]>([]);
-  const [advsLoading, setAdvsLoading] = useState(false);
-  const [advFormOpen, setAdvFormOpen] = useState(false);
-  const [editingAdv, setEditingAdv] = useState<Partial<Advertiser>>(EMPTY_ADVERTISER);
-  const [savingAdv, setSavingAdv] = useState(false);
+  // Advertiser management moved to /admin/advertisers — the
+  // nested master-detail that used to live here is gone. Admin
+  // navigates between the two pages instead.
 
   const loadPublishers = useCallback(async () => {
     try {
@@ -173,54 +136,6 @@ const PublishersManagement: React.FC = () => {
     }
   };
 
-  // advertisers
-  const openAdvs = async (p: Publisher) => {
-    setAdvsFor(p);
-    setAdvsDialogOpen(true);
-    setAdvsLoading(true);
-    try {
-      const res = await apiService.listAdvertisersForPublisher(p.id, { limit: 100 });
-      setAdvs(res.data);
-    } catch (e: any) {
-      setError(e?.response?.data?.error || 'Failed to load advertisers');
-    } finally {
-      setAdvsLoading(false);
-    }
-  };
-  const openCreateAdv = () => {
-    setEditingAdv({ ...EMPTY_ADVERTISER, publisher_id: advsFor?.id });
-    setAdvFormOpen(true);
-  };
-  const openEditAdv = (a: Advertiser) => {
-    setEditingAdv(a);
-    setAdvFormOpen(true);
-  };
-  const saveAdv = async () => {
-    if (!advsFor) return;
-    setSavingAdv(true);
-    try {
-      // Auto-flag regulated for known categories — saves ops from forgetting.
-      const isRegulated = REGULATED_CATEGORIES.includes(editingAdv.category as AdvertiserCategory);
-      const payload = {
-        ...editingAdv,
-        publisher_id: advsFor.id,
-        requires_regulated_slot: isRegulated || !!editingAdv.requires_regulated_slot,
-      };
-      if (editingAdv.id) {
-        await apiService.updateAdvertiserV2(editingAdv.id, payload);
-      } else {
-        await apiService.createAdvertiserV2(payload);
-      }
-      setAdvFormOpen(false);
-      const res = await apiService.listAdvertisersForPublisher(advsFor.id, { limit: 100 });
-      setAdvs(res.data);
-      await loadPublishers(); // refresh counts
-    } catch (e: any) {
-      setError(e?.response?.data?.error || 'Save failed');
-    } finally {
-      setSavingAdv(false);
-    }
-  };
 
   const statusChip = (s: string) => {
     const color: Record<string, 'success' | 'warning' | 'default' | 'error'> = {
@@ -303,7 +218,6 @@ const PublishersManagement: React.FC = () => {
               <TableCell>Legal name / NPWP</TableCell>
               <TableCell>Kind</TableCell>
               <TableCell>Tier</TableCell>
-              <TableCell>Advertisers</TableCell>
               <TableCell>Commission %</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Actions</TableCell>
@@ -311,9 +225,9 @@ const PublishersManagement: React.FC = () => {
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}><CircularProgress size={24} /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}><CircularProgress size={24} /></TableCell></TableRow>
             ) : rows.length === 0 ? (
-              <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+              <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                 <Typography variant="body2" color="text.secondary">
                   {search || statusFilter || kindFilter || tierFilter ? 'No match' : 'No publishers yet — onboard your first one'}
                 </Typography>
@@ -328,11 +242,6 @@ const PublishersManagement: React.FC = () => {
                   </TableCell>
                   <TableCell><Chip size="small" label={p.kind} color={kindChipColor[p.kind] || 'default'} variant="outlined" /></TableCell>
                   <TableCell><Chip size="small" label={p.tier} variant="outlined" /></TableCell>
-                  <TableCell>
-                    <Button size="small" startIcon={<BrandIcon />} onClick={() => openAdvs(p)}>
-                      {p.advertiser_count ?? 0}
-                    </Button>
-                  </TableCell>
                   <TableCell>{p.default_commission_pct?.toFixed(2)}%</TableCell>
                   <TableCell>{statusChip(p.status)}</TableCell>
                   <TableCell align="right">
@@ -356,8 +265,13 @@ const PublishersManagement: React.FC = () => {
         />
       </TableContainer>
 
-      {/* ── Publisher create / edit dialog ───────────────────────────── */}
-      <Dialog open={pubDialogOpen} onClose={() => setPubDialogOpen(false)} maxWidth="md" fullWidth>
+      {/* ── Publisher create / edit drawer ───────────────────────────── */}
+      <Drawer
+        anchor="right"
+        open={pubDialogOpen}
+        onClose={() => setPubDialogOpen(false)}
+        PaperProps={{ sx: { width: { xs: '100%', md: 720 } } }}
+      >
         <DialogTitle>{editingPub.id ? 'Edit publisher' : 'New publisher'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ pt: 1 }}>
@@ -456,165 +370,8 @@ const PublishersManagement: React.FC = () => {
             {savingPub ? <CircularProgress size={20} /> : 'Save'}
           </Button>
         </DialogActions>
-      </Dialog>
+      </Drawer>
 
-      {/* ── Advertisers dialog ────────────────────────────────────── */}
-      <Dialog open={advsDialogOpen} onClose={() => setAdvsDialogOpen(false)} maxWidth="lg" fullWidth>
-        <DialogTitle>
-          <Stack direction="row" alignItems="center">
-            <Box flex={1}>
-              <Typography variant="h6">Advertisers — {advsFor?.display_name}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Brands managed by this publisher
-              </Typography>
-            </Box>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateAdv} sx={{ mr: 1 }}>
-              New advertiser
-            </Button>
-            <IconButton onClick={() => setAdvsDialogOpen(false)}><CloseIcon /></IconButton>
-          </Stack>
-        </DialogTitle>
-        <DialogContent dividers>
-          {advsLoading ? (
-            <Box textAlign="center" py={4}><CircularProgress /></Box>
-          ) : advs.length === 0 ? (
-            <Box textAlign="center" py={4}>
-              <Typography color="text.secondary">No advertisers yet — add the first brand</Typography>
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Display name</TableCell>
-                    <TableCell>Legal name / NPWP</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Regulated</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right" />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {advs.map((a) => (
-                    <TableRow key={a.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={500}>{a.display_name}</Typography>
-                        {a.contact_email && (
-                          <Typography variant="caption" color="text.secondary">{a.contact_email}</Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{a.legal_name}</Typography>
-                        <Typography variant="caption" color="text.secondary">{a.npwp || '—'}</Typography>
-                      </TableCell>
-                      <TableCell><Chip size="small" label={a.category} variant="outlined" /></TableCell>
-                      <TableCell>
-                        {a.requires_regulated_slot
-                          ? <Chip size="small" label="Regulated" color="warning" />
-                          : '—'}
-                      </TableCell>
-                      <TableCell>{statusChip(a.status)}</TableCell>
-                      <TableCell align="right">
-                        <IconButton size="small" onClick={() => openEditAdv(a)}><EditIcon fontSize="small" /></IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Advertiser form dialog ────────────────────────────────── */}
-      <Dialog open={advFormOpen} onClose={() => setAdvFormOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{editingAdv.id ? 'Edit advertiser' : 'New advertiser'}</DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ pt: 1 }}>
-            <Grid item xs={12} md={6}>
-              <TextField required fullWidth label="Legal name" value={editingAdv.legal_name || ''}
-                onChange={(e) => setEditingAdv({ ...editingAdv, legal_name: e.target.value })} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField required fullWidth label="Display / brand name" value={editingAdv.display_name || ''}
-                onChange={(e) => setEditingAdv({ ...editingAdv, display_name: e.target.value })} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="Logo URL (optional)" value={editingAdv.logo_url || ''}
-                onChange={(e) => setEditingAdv({ ...editingAdv, logo_url: e.target.value })} />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth label="NPWP (if billed directly)" value={editingAdv.npwp || ''}
-                onChange={(e) => setEditingAdv({ ...editingAdv, npwp: e.target.value })} />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth multiline minRows={2} label="Billing address (if billed directly)"
-                value={editingAdv.billing_address || ''}
-                onChange={(e) => setEditingAdv({ ...editingAdv, billing_address: e.target.value })} />
-            </Grid>
-
-            <Grid item xs={12}><Typography variant="overline" color="text.secondary">Direct contact (optional)</Typography></Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Contact name" value={editingAdv.contact_name || ''}
-                onChange={(e) => setEditingAdv({ ...editingAdv, contact_name: e.target.value })} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="Email" value={editingAdv.contact_email || ''}
-                onChange={(e) => setEditingAdv({ ...editingAdv, contact_email: e.target.value })} />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField fullWidth label="WhatsApp (+62…)" value={editingAdv.contact_phone_wa || ''}
-                onChange={(e) => setEditingAdv({ ...editingAdv, contact_phone_wa: e.target.value })} />
-            </Grid>
-
-            <Grid item xs={12}><Typography variant="overline" color="text.secondary">Classification</Typography></Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Category</InputLabel>
-                <Select value={editingAdv.category || 'OTHER'} label="Category"
-                  onChange={(e) => {
-                    const cat = e.target.value as AdvertiserCategory;
-                    setEditingAdv({
-                      ...editingAdv,
-                      category: cat,
-                      // Auto-flag regulated for known sensitive categories.
-                      requires_regulated_slot:
-                        REGULATED_CATEGORIES.includes(cat) || !!editingAdv.requires_regulated_slot,
-                    });
-                  }}>
-                  {ADV_CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select value={editingAdv.status || 'ACTIVE'} label="Status"
-                  onChange={(e) => setEditingAdv({ ...editingAdv, status: e.target.value as AdvertiserStatus })}>
-                  {ADV_STATUSES.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControlLabel control={
-                <Switch checked={!!editingAdv.requires_regulated_slot}
-                  onChange={(e) => setEditingAdv({ ...editingAdv, requires_regulated_slot: e.target.checked })} />
-              } label="Requires regulated slot"
-              />
-              <Typography variant="caption" color="text.secondary" display="block">
-                Tobacco / alcohol / political / gambling
-              </Typography>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAdvFormOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={savingAdv || !editingAdv.legal_name || !editingAdv.display_name}
-            onClick={saveAdv}>
-            {savingAdv ? <CircularProgress size={20} /> : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

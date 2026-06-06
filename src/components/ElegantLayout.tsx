@@ -159,12 +159,40 @@ const getNavigationSections = (t: any): NavigationSection[] => [
         roles: ['admin'],
       },
       {
+        // Admin cross-venue outlet view — empty until a venue is
+        // picked. Distinct from the venue_partner-scoped "Outlets"
+        // entry below; the page itself differs (admin can pick any
+        // venue, venue_partner can only see their own).
+        text: 'Outlets',
+        icon: <StoreIcon />,
+        path: 'outlets',
+        roles: ['admin'],
+      },
+      {
+        // Curated outlet groups for targeting. Lets admin define
+        // VENUE_CURATED sets the publisher picker exposes alongside
+        // ANY (all outlets) and SYSTEM_AUTO (by city / province).
+        text: 'Outlet groups',
+        icon: <StoreIcon />,
+        path: 'outlet-groups',
+        roles: ['admin'],
+      },
+      {
         // V2 entity — publisher (seller side) with nested advertisers.
         // Sits next to Partners; once V2 supersedes V1, the legacy
         // Partners entry can retire.
         text: 'Publishers',
         icon: <BusinessIcon />,
         path: 'publishers',
+        roles: ['admin'],
+      },
+      {
+        // Admin cross-publisher advertiser view — empty until a
+        // publisher is picked. Distinct from the publisher-scoped
+        // "Advertisers" entry below.
+        text: 'Advertisers',
+        icon: <BusinessIcon />,
+        path: 'advertisers',
         roles: ['admin'],
       },
       {
@@ -182,6 +210,15 @@ const getNavigationSections = (t: any): NavigationSection[] => [
         path: 'outlets',
         roles: ['venue_partner'],
       },
+      {
+        // Venue partner manages their own curated outlet groups. The
+        // page auto-pins to their venue via JWT; admin sees the
+        // venue picker, venue_partner sees a read-only venue label.
+        text: 'Outlet groups',
+        icon: <StoreIcon />,
+        path: 'outlet-groups',
+        roles: ['venue_partner'],
+      },
     ]
   },
 
@@ -196,11 +233,18 @@ const getNavigationSections = (t: any): NavigationSection[] => [
         roles: ['admin', 'partner', 'venue_partner'],
       },
       {
-        text: t('deviceRegistration'),
-        icon: <RegistrationIcon />,
-        path: 'device-registration',
-        roles: ['admin'],
+        // Layouts catalog with per-template device counts + inline
+        // Assign drawer. Coverage stats and the device list are
+        // auto-scoped to the user's venue when role=venue_partner.
+        text: 'Layouts',
+        icon: <DeviceIcon />,
+        path: 'layouts',
+        roles: ['admin', 'venue_partner'],
       },
+      // Device Registration nav entry removed — admins pair devices
+      // directly from /admin/devices (header button + per-row actions).
+      // The route stays mounted in App.tsx so bookmarked URLs still
+      // resolve, but it isn't surfaced in the sidebar.
       {
         text: t('deviceDemography'),
         icon: <DemographyIcon />,

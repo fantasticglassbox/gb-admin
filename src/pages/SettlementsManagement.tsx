@@ -39,6 +39,7 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import {
   CreateEntryResult,
   PaymentMethod,
@@ -80,6 +81,13 @@ const statusChip = (s: SettlementStatus) => {
 };
 
 const SettlementsManagement: React.FC = () => {
+  // Settlement creation is admin-only. Publishers and venue partners
+  // see the same list and KPIs but can't open the entry drawer or
+  // mutate rows — settlement is a money-side action that lives with
+  // the admin who reconciles gross revenue.
+  const { hasRole } = useAuth();
+  const canCreate = hasRole('admin');
+
   // ── list state ──────────────────────────────────────────────────────
   const [rows, setRows] = useState<Settlement[]>([]);
   const [total, setTotal] = useState(0);
@@ -294,9 +302,11 @@ const SettlementsManagement: React.FC = () => {
           </Typography>
         </Box>
         <Tooltip title="Refresh"><IconButton onClick={loadSettlements}><RefreshIcon /></IconButton></Tooltip>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openEntry} disabled={!lookupsLoaded}>
-          New revenue entry
-        </Button>
+        {canCreate && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openEntry} disabled={!lookupsLoaded}>
+            New revenue entry
+          </Button>
+        )}
       </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
@@ -405,13 +415,16 @@ const SettlementsManagement: React.FC = () => {
                   <TableCell align="right"><b>{formatIDR(s.net_idr)}</b></TableCell>
                   <TableCell>{statusChip(s.status)}</TableCell>
                   <TableCell align="right">
-                    {s.status === 'DRAFT' && (
+                    {/* Mutating row actions (Lock / Mark paid / Void)
+                        are admin-only — publishers and venue
+                        partners get a read-only view. */}
+                    {canCreate && s.status === 'DRAFT' && (
                       <>
                         <Tooltip title="Lock"><IconButton size="small" onClick={() => lock(s)}><LockIcon fontSize="small" /></IconButton></Tooltip>
                         <Tooltip title="Void"><IconButton size="small" onClick={() => voidIt(s)}><VoidIcon fontSize="small" /></IconButton></Tooltip>
                       </>
                     )}
-                    {s.status === 'LOCKED' && (
+                    {canCreate && s.status === 'LOCKED' && (
                       <>
                         <Tooltip title="Mark paid"><IconButton size="small" color="primary" onClick={() => openPay(s)}><PayIcon fontSize="small" /></IconButton></Tooltip>
                         <Tooltip title="Void"><IconButton size="small" onClick={() => voidIt(s)}><VoidIcon fontSize="small" /></IconButton></Tooltip>

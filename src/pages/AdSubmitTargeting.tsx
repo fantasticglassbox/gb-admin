@@ -677,20 +677,42 @@ const CampaignSubmitTargeting: React.FC = () => {
             </Alert>
           )}
 
+          {/* Non-DRAFT campaigns can't be submitted — show a clear
+              read-only banner instead of a disabled button so the
+              user understands why and what to do. */}
+          {campaign.state !== 'DRAFT' ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              This campaign is <strong>{campaign.state}</strong> — it has
+              already been submitted to venues and cannot be submitted
+              again. Create a new campaign if you need to retarget.
+            </Alert>
+          ) : (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <strong>This action is irreversible.</strong> Submitting
+              publishes the campaign and fans out approval requests to
+              the selected venues. You can't unsubmit — to retarget
+              you'd create a new campaign.
+            </Alert>
+          )}
+
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="contained"
-              disabled={submitting || groupsSelectedCount === 0}
+              disabled={
+                submitting ||
+                groupsSelectedCount === 0 ||
+                campaign.state !== 'DRAFT'
+              }
               onClick={handleSubmit}
             >
-              {submitting ? 'Submitting…' : 'Submit for approval'}
+              {submitting ? 'Submitting…' : 'Submit & publish'}
             </Button>
             <Button
               variant="outlined"
               onClick={() => navigate(-1)}
               disabled={submitting}
             >
-              Cancel
+              {campaign.state !== 'DRAFT' ? 'Back' : 'Cancel'}
             </Button>
           </Stack>
         </Box>
