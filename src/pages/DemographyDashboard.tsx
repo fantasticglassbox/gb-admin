@@ -22,7 +22,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
-import CityDeploymentMap from '../components/CityDeploymentMap';
+import DeviceHeatmap from '../components/DeviceHeatmap';
 
 interface DeviceLocation {
   device_id: string;
@@ -245,10 +245,11 @@ const DemographyDashboard: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* City-Focused Deployment Map */}
-      <CityDeploymentMap 
+      {/* MapLibre heatmap — fleet density coloured against CARTO
+          Voyager basemap. Replaces the prior leaflet + leaflet.heat
+          implementation. */}
+      <DeviceHeatmap
         locations={stats.device_locations}
-        stats={stats}
         height={650}
       />
 
