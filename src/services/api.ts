@@ -51,6 +51,7 @@ import {
   CampaignApproval,
   CampaignApprovalStatus,
   CampaignPlaybackResponse,
+  PlaybackErrorsResponse,
   CampaignState,
   CreateCampaignRequest,
   UpdateCampaignRequest,
@@ -1525,6 +1526,20 @@ class ApiService {
     params?: { from?: string; to?: string; publisher_id?: string; venue_partner_id?: string },
   ): Promise<CampaignPlaybackResponse> {
     const response = await this.apiV2.get('/analytics/campaign-playback', { params });
+    return response.data;
+  }
+
+  /** Per-(device × asset × error_code) playback failure tallies for
+   *  the "Playback health" diagnostic panel. Same role-scoping +
+   *  time-window contract as getCampaignPlayback. Pass a `campaign_id`
+   *  via the publisher_id query-string indirection? No — filter on the
+   *  client side, because the endpoint already groups by campaign and
+   *  the response is small (one row per failing device-asset-code
+   *  triple over the window). */
+  async getPlaybackErrors(
+    params?: { from?: string; to?: string; publisher_id?: string; venue_partner_id?: string },
+  ): Promise<PlaybackErrorsResponse> {
+    const response = await this.apiV2.get('/analytics/playback-errors', { params });
     return response.data;
   }
 }

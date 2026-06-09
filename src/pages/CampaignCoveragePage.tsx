@@ -27,6 +27,7 @@ import {
   Campaign,
   CampaignApproval,
   CampaignApprovalStatus,
+  PlaybackErrorRow,
   VenuePartner,
 } from '../types';
 
@@ -60,6 +61,7 @@ const CampaignCoveragePage: React.FC = () => {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [approvals, setApprovals] = useState<CampaignApproval[]>([]);
   const [venues, setVenues] = useState<VenuePartner[]>([]);
+  const [playbackErrors, setPlaybackErrors] = useState<PlaybackErrorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +75,7 @@ const CampaignCoveragePage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [cmp, approvalsRes, venuesRes] = await Promise.all([
+      const [cmp, approvalsRes, venuesRes, errorsRes] = await Promise.all([
         apiService.getCampaign(campaignId),
         // limit=1000 — a single campaign rarely targets that many
         // venues; if you hit this ceiling we'll paginate properly.
@@ -82,10 +84,19 @@ const CampaignCoveragePage: React.FC = () => {
           limit: 1000,
         }),
         apiService.listVenuePartners({ limit: 1000 }),
+        // Playback errors over the default 30-day window; the panel
+        // filters to this campaign client-side. Don't break the page
+        // if the analytics endpoint errors — a venue partner role on
+        // an admin-only build, e.g., would 403 here; surface a soft
+        // empty state rather than killing the whole coverage view.
+        apiService
+          .getPlaybackErrors()
+          .catch(() => ({ data: [], from: '', to: '' })),
       ]);
       setCampaign(cmp);
       setApprovals(approvalsRes.data);
       setVenues(venuesRes.data);
+      setPlaybackErrors(errorsRes.data);
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to load coverage');
     } finally {
@@ -102,6 +113,18 @@ const CampaignCoveragePage: React.FC = () => {
     venues.forEach((v) => m.set(v.id, v));
     return m;
   }, [venues]);
+
+  // Playback errors filtered to this campaign and sorted by frequency.
+  // The endpoint returns errors across all of the caller's campaigns so
+  // we narrow client-side; payloads are small (one row per failing
+  // device-asset-error_code tuple over the 30d window).
+  const campaignErrors = useMemo(
+    () =>
+      playbackErrors
+        .filter((r) => r.campaign_id === campaignId)
+        .sort((a, b) => b.error_count - a.error_count),
+    [playbackErrors, campaignId],
+  );
 
   // Counts per status — drives the summary strip.
   const counts = useMemo(() => {
@@ -322,6 +345,114 @@ const CampaignCoveragePage: React.FC = () => {
           </Table>
         </TableContainer>
       )}
+
+      {/* Playback health — surfaces device × asset × error_code tuples
+          so the admin can spot OEM-specific patterns ("Cocaa TVs are
+          dropping CODEC_UNSUPPORTED on the same hero asset"). */}
+      <Box sx={{ mt: 4 }}>
+        <Stack
+          direction="row"
+          alignItems="baseline"
+          spacing={1.5}
+          sx={{ mb: 1.5 }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            Playback health
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            last 30 days · {campaignErrors.length}{' '}
+            {campaignErrors.length === 1 ? 'incident' : 'incidents'}
+          </Typography>
+        </Stack>
+        {campaignErrors.length === 0 ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              No playback errors reported for this campaign in the last
+              30 days. Devices are rendering the assets without
+              codec/network/DRM failures.
+            </Typography>
+          </Paper>
+        ) : (
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Device</TableCell>
+                  <TableCell>Hardware</TableCell>
+                  <TableCell>Asset</TableCell>
+                  <TableCell>Error code</TableCell>
+                  <TableCell align="right">Failures</TableCell>
+                  <TableCell>Last seen</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {campaignErrors.map((row) => {
+                  const hw = [row.manufacturer, row.model]
+                    .filter(Boolean)
+                    .join(' · ');
+                  return (
+                    <TableRow
+                      key={`${row.device_id}|${row.campaign_asset_id}|${row.error_code}`}
+                      hover
+                    >
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>
+                          {row.device_name || row.device_id}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {row.device_id}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption">
+                          {hw || '—'}
+                        </Typography>
+                        {row.device_type && (
+                          <Chip
+                            size="small"
+                            label={row.device_type}
+                            sx={{ ml: 0.5, height: 18, fontSize: 10 }}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="caption"
+                          sx={{ fontFamily: 'monospace' }}
+                        >
+                          {row.campaign_asset_id.slice(0, 8)}…
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={row.error_code}
+                          sx={{
+                            bgcolor: '#FEF3C7',
+                            color: '#92400E',
+                            fontFamily: 'monospace',
+                            fontWeight: 700,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight={700}>
+                          {row.error_count.toLocaleString()}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" color="text.secondary">
+                          {fmt(row.last_seen)}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
     </Box>
   );
 };

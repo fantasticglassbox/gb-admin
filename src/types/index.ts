@@ -1447,6 +1447,32 @@ export interface CampaignPlaybackResponse {
   to: string;
 }
 
+/** Per-(device × asset × error_code) failure tally returned by
+ *  GET /v2/analytics/playback-errors. Lets the admin diagnose which
+ *  hardware is dropping which content with what error code — the
+ *  "CODEC_UNSUPPORTED on every Cocaa TV" story. Manufacturer / model /
+ *  device_type come from the joined devices row and may be empty for
+ *  unregistered or pre-heartbeat devices. */
+export interface PlaybackErrorRow {
+  device_id: string;
+  device_name: string;
+  manufacturer: string;
+  model: string;
+  device_type: string;
+  campaign_id: string;
+  campaign_title: string;
+  campaign_asset_id: string;
+  error_code: string;
+  error_count: number;
+  last_seen: string;
+}
+
+export interface PlaybackErrorsResponse {
+  data: PlaybackErrorRow[];
+  from: string;
+  to: string;
+}
+
 export interface Campaign {
   id: string;
   publisher_id?: string;
