@@ -49,6 +49,7 @@ import {
   Block as RevokeIcon,
   Visibility as PreviewIcon,
   Close as CloseIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import {
   Campaign,
@@ -350,7 +351,7 @@ const CampaignApprovalsManagement: React.FC = () => {
         anchor="right"
         open={!!previewFor}
         onClose={() => setPreviewFor(null)}
-        PaperProps={{ sx: { width: { xs: '100%', sm: 560 } } }}
+        PaperProps={{ sx: { width: { xs: '100%', sm: 560, md: 720 } } }}
       >
         {previewFor && (
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -424,58 +425,122 @@ const CampaignApprovalsManagement: React.FC = () => {
                   >
                     Assets ({(previewCampaign.assets || []).length})
                   </Typography>
-                  <Stack spacing={1.5}>
+                  {/* Full asset review surface. Each asset gets its
+                      own card with the actual creative — full-width
+                      image or HTML5 video with native controls — so
+                      the venue partner can verify what they're
+                      approving. Replaces the prior 72×48 thumbnail
+                      strip that hid videos behind a black "VIDEO"
+                      placeholder. */}
+                  <Stack spacing={2}>
                     {(previewCampaign.assets || []).map((a) => (
-                      <Stack
+                      <Box
                         key={a.id}
-                        direction="row"
-                        spacing={1.5}
-                        sx={{ p: 1.5, border: '1px solid #E8E2D7', borderRadius: 1 }}
+                        sx={{
+                          border: '1px solid #E8E2D7',
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          bgcolor: '#0B0B0C',
+                        }}
                       >
-                        {a.content_type === 'IMAGE' ? (
-                          <Box
-                            component="img"
-                            src={a.content_url}
-                            alt={a.zone_slug}
+                        {/* Media — letterboxed against a black
+                            backdrop, max 320px tall so a single
+                            tall asset doesn't dominate the drawer
+                            when the campaign has 3+ assets. */}
+                        <Box
+                          sx={{
+                            position: 'relative',
+                            width: '100%',
+                            maxHeight: 320,
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            bgcolor: '#000',
+                          }}
+                        >
+                          {a.content_type === 'IMAGE' ? (
+                            <Box
+                              component="img"
+                              src={a.content_url}
+                              alt={a.zone_slug}
+                              loading="lazy"
+                              sx={{
+                                maxWidth: '100%',
+                                maxHeight: 320,
+                                objectFit: 'contain',
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              component="video"
+                              src={a.content_url}
+                              controls
+                              preload="metadata"
+                              playsInline
+                              sx={{
+                                width: '100%',
+                                maxHeight: 320,
+                                outline: 'none',
+                                bgcolor: '#000',
+                              }}
+                            />
+                          )}
+                        </Box>
+                        {/* Meta strip — zone, type, duration. The
+                            zone matters because the same campaign
+                            often has a main creative + a smaller
+                            sidebar/ticker; the venue partner needs
+                            to see "where this will play" alongside
+                            "what this is". */}
+                        <Box
+                          sx={{
+                            px: 2,
+                            py: 1.25,
+                            bgcolor: 'background.paper',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          <Chip
+                            size="small"
+                            label={`zone · ${a.zone_slug}`}
                             sx={{
-                              width: 72,
-                              height: 48,
-                              objectFit: 'cover',
-                              borderRadius: 1,
-                              border: '1px solid #E8E2D7',
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              width: 72,
-                              height: 48,
-                              borderRadius: 1,
-                              background: '#1A1816',
-                              color: 'white',
-                              display: 'grid',
-                              placeItems: 'center',
-                              fontSize: 11,
+                              fontFamily: 'monospace',
                               fontWeight: 700,
                             }}
-                          >
-                            VIDEO
-                          </Box>
-                        )}
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 700, fontSize: 13 }}>
-                            zone <code>{a.zone_slug}</code>
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ fontFamily: 'monospace' }}
-                            noWrap
-                          >
-                            {a.content_url}
-                          </Typography>
+                          />
+                          <Chip
+                            size="small"
+                            label={a.content_type}
+                            color={
+                              a.content_type === 'VIDEO' ? 'primary' : 'default'
+                            }
+                            variant="outlined"
+                          />
+                          {a.duration_seconds > 0 && (
+                            <Chip
+                              size="small"
+                              label={`${a.duration_seconds}s`}
+                              variant="outlined"
+                            />
+                          )}
+                          <Box sx={{ flex: 1 }} />
+                          <Tooltip title="Open the raw asset in a new tab">
+                            <Button
+                              size="small"
+                              endIcon={<OpenInNewIcon fontSize="small" />}
+                              href={a.content_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{ textTransform: 'none' }}
+                            >
+                              Source
+                            </Button>
+                          </Tooltip>
                         </Box>
-                      </Stack>
+                      </Box>
                     ))}
                   </Stack>
                 </>

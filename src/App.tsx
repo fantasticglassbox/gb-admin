@@ -167,6 +167,7 @@ function App() {
               <Route path="outlets" element={<VenueOutletsPage />} />
               <Route path="outlet-groups" element={<AdminOutletGroupsPage />} />
               <Route path="devices" element={<DevicesManagement />} />
+              <Route path="devices/:deviceId" element={<DeviceDetail />} />
               <Route path="layouts" element={<AdminLayoutsPage />} />
               <Route path="approvals" element={<AdApprovalsManagement />} />
               <Route path="settlements" element={<SettlementsManagement />} />
