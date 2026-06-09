@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { User, UserRole, UserStatus, FilterOptions, Publisher, VenuePartner } from '../types';
 import { apiService } from '../services/api';
+import { pageHeaderSx } from '../utils/responsive';
 
 const UsersManagement: React.FC = () => {
   const { t } = useTranslation();
@@ -306,7 +307,7 @@ const UsersManagement: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Typography variant="h4" component="h1">
           {t('usersManagement')}
         </Typography>

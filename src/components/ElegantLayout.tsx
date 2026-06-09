@@ -537,38 +537,55 @@ const ElegantLayout: React.FC = () => {
           boxShadow: 'none',
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Toolbar sx={{ justifyContent: 'space-between', minHeight: { xs: 56, sm: 64 } }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: { xs: 1, sm: 2 },
+              minWidth: 0,
+              flex: 1,
+            }}
+          >
             <IconButton
               color="inherit"
               aria-label="open drawer"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ 
-                mr: 2, 
+              sx={{
+                mr: { xs: 0.5, sm: 2 },
                 display: { sm: 'none' },
                 color: theme.palette.text.primary,
               }}
             >
               <MenuIcon />
             </IconButton>
-            
-            <Box>
+
+            <Box sx={{ minWidth: 0 }}>
               <Typography
                 variant="h5"
+                noWrap
                 sx={{
                   color: theme.palette.text.primary,
                   fontWeight: 700,
-                  fontSize: '1.5rem',
+                  // Smaller on mobile so long titles ("Devices
+                  // Management") don't push the right-side controls
+                  // off-screen.
+                  fontSize: { xs: '1rem', sm: '1.5rem' },
                 }}
               >
                 {getPageTitle()}
               </Typography>
+              {/* Welcome subtitle is a personalisation flourish; on
+                  a phone it's pure noise and pushes the page title
+                  further from the content. Desktop keeps it. */}
               <Typography
                 variant="body2"
+                noWrap
                 sx={{
                   color: theme.palette.text.secondary,
                   fontSize: '0.875rem',
+                  display: { xs: 'none', sm: 'block' },
                 }}
               >
                 {t('welcomeBack')}, {user?.name}
@@ -576,10 +593,14 @@ const ElegantLayout: React.FC = () => {
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.25, sm: 1 } }}>
+            {/* Search icon is decorative-only today (no handler) —
+                hide on mobile to claim back ~48px of viewport for
+                the language switcher + avatar. */}
             <IconButton
-              sx={{ 
+              sx={{
                 color: theme.palette.text.primary,
+                display: { xs: 'none', sm: 'inline-flex' },
                 '&:hover': {
                   backgroundColor: alpha(theme.palette.primary.main, 0.08),
                 },
@@ -587,9 +608,9 @@ const ElegantLayout: React.FC = () => {
             >
               <SearchIcon />
             </IconButton>
-            
+
             <IconButton
-              sx={{ 
+              sx={{
                 color: theme.palette.text.primary,
                 '&:hover': {
                   backgroundColor: alpha(theme.palette.primary.main, 0.08),
@@ -601,8 +622,9 @@ const ElegantLayout: React.FC = () => {
               </Badge>
             </IconButton>
 
-            {/* Language Switcher */}
-            <FormControl size="small" sx={{ minWidth: 70 }}>
+            {/* Language Switcher — narrower on mobile so the avatar
+                doesn't get clipped. */}
+            <FormControl size="small" sx={{ minWidth: { xs: 56, sm: 70 } }}>
               <Select
                 value={i18n.language}
                 onChange={(e) => changeLanguage(e.target.value)}
@@ -742,7 +764,11 @@ const ElegantLayout: React.FC = () => {
         }}
       >
         <Toolbar />
-        <Box sx={{ p: 3 }}>
+        {/* Responsive content padding. 24px on desktop is generous;
+            on a phone it eats almost 15% of the viewport width, so we
+            tighten to 12px on xs and 16px on sm. Touching this once
+            here propagates to every page inside the layout. */}
+        <Box sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
           <Outlet />
         </Box>
       </Box>

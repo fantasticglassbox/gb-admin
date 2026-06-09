@@ -45,6 +45,7 @@ import {
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import LocationGenerationDialog from '../components/LocationGenerationDialog';
+import { pageHeaderSx } from '../utils/responsive';
 
 interface Device {
   id: string;
@@ -180,7 +181,7 @@ const DeviceRegistration: React.FC = () => {
 
   return (
     <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Typography variant="h4" component="h1">
           {t('deviceRegistration')}
         </Typography>

@@ -48,6 +48,7 @@ import {
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCompactNumber, formatCurrencyDetailed } from '../utils/formatters';
+import { pageHeaderSx } from '../utils/responsive';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -167,7 +168,7 @@ const EnhancedPartnerDashboard: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4" gutterBottom>
             Partner Dashboard / Dasbor Partner

@@ -46,6 +46,7 @@ import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCompactNumber, formatMonthDisplay, formatCurrencyDetailed } from '../utils/formatters';
 import type { Advertisement as SystemAdvertisement } from '../types';
+import { pageHeaderSx } from '../utils/responsive';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -283,7 +284,7 @@ const RealPartnerDashboard: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4" gutterBottom>
             <CampaignIcon sx={{ mr: 1, verticalAlign: 'middle' }} />

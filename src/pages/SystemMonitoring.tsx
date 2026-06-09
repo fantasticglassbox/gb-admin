@@ -47,6 +47,7 @@ import {
 } from 'recharts';
 import { SystemHealth, AuditLog } from '../types';
 import { apiService } from '../services/api';
+import { pageHeaderSx } from '../utils/responsive';
 
 interface SystemMetrics {
   cpu_usage: number;
@@ -234,7 +235,7 @@ const SystemMonitoring: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Typography variant="h4" component="h1">
           System Monitoring
         </Typography>

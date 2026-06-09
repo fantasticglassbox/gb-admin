@@ -389,7 +389,7 @@ const DeviceHeatmap: React.FC<Props> = ({ locations, height = 650 }) => {
       {totalWithCoords === 0 ? (
         <Box
           sx={{
-            height,
+            height: { xs: 420, md: height },
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -405,7 +405,10 @@ const DeviceHeatmap: React.FC<Props> = ({ locations, height = 650 }) => {
           </Typography>
         </Box>
       ) : (
-        <Box sx={{ height }}>
+        // Viewport: on mobile we cap at 420px so the heatmap doesn't
+        // dominate the screen below the toolbar + city chips.
+        // Desktop uses whatever the caller passes.
+        <Box sx={{ height: { xs: 420, md: height } }}>
           <MapLibreMap
             ref={mapRef}
             initialViewState={INDONESIA}

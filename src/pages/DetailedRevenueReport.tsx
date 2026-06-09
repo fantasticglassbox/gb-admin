@@ -53,6 +53,7 @@ import {
 } from 'recharts';
 import { apiService } from '../services/api';
 import { formatCompactNumber, formatCurrencyDetailed } from '../utils/formatters';
+import { pageHeaderSx } from '../utils/responsive';
 
 interface DetailedRevenueReportData {
   period: string;
@@ -267,7 +268,7 @@ const DetailedRevenueReport: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Typography variant="h4" component="h1">
           Detailed {t('revenue')} Report
         </Typography>

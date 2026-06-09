@@ -46,6 +46,7 @@ import { Collapse, InputAdornment, ToggleButton, ToggleButtonGroup } from '@mui/
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Outlet, OutletGroup, VenuePartner } from '../types';
+import { pageHeaderSx } from '../utils/responsive';
 
 // Admin-side Outlet Groups page. Only VENUE_CURATED groups are
 // editable through this UI; the ANY group is hidden (it's an
@@ -236,7 +237,7 @@ const AdminOutletGroupsPage: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4">Outlet groups</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

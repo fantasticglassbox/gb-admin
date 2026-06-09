@@ -37,6 +37,7 @@ import {
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { Advertiser, AdvertiserCategory, AdvertiserStatus } from '../types';
+import { pageHeaderSx } from '../utils/responsive';
 
 // Dedicated advertisers page for publisher users. Skips the
 // PublishersManagement master/detail (which is the admin UI for managing
@@ -176,7 +177,7 @@ const PublisherAdvertisersPage: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4">Advertisers</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

@@ -41,6 +41,7 @@ import {
 import { apiService } from '../services/api';
 import { Device, Layout, Outlet, OutletType, VenuePartner } from '../types';
 import OperatingHoursEditor from '../components/OperatingHoursEditor';
+import { pageHeaderSx } from '../utils/responsive';
 import { Dialog } from '@mui/material';
 
 // Admin-side Outlets page. Lists every outlet across every venue,
@@ -237,7 +238,7 @@ const AdminOutletsPage: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4">Outlets</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

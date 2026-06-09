@@ -50,6 +50,7 @@ import {
 } from '@mui/icons-material';
 import { AssetResponse, FilterOptions } from '../types';
 import { apiService } from '../services/api';
+import { pageHeaderSx } from '../utils/responsive';
 
 const AssetsManagement: React.FC = () => {
   const [assets, setAssets] = useState<AssetResponse[]>([]);
@@ -323,7 +324,7 @@ const AssetsManagement: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Typography variant="h4" component="h1">
           Assets Management
         </Typography>

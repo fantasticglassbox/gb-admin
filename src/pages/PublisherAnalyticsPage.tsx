@@ -38,6 +38,7 @@ import { apiService } from '../services/api';
 import { PublisherAnalytics } from '../types';
 import CampaignPlaybackCard from '../components/CampaignPlaybackCard';
 import { formatCurrencyDetailed } from '../utils/formatters';
+import { pageHeaderSx } from '../utils/responsive';
 
 const FUNNEL_COLORS = ['#ed6c02', '#2e7d32', '#d32f2f', '#9e9e9e']; // PROPOSED/APPROVED/REJECTED/REVOKED
 
@@ -117,7 +118,7 @@ const PublisherAnalyticsPage: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4">Analytics</Typography>
           <Typography variant="body2" color="text.secondary">

@@ -38,6 +38,7 @@ import { apiService } from '../services/api';
 import { VenuePartnerAnalytics } from '../types';
 import CampaignPlaybackCard from '../components/CampaignPlaybackCard';
 import { formatCurrencyDetailed } from '../utils/formatters';
+import { pageHeaderSx } from '../utils/responsive';
 
 const fmtShort = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -113,7 +114,7 @@ const VenuePartnerAnalyticsPage: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4">Analytics</Typography>
           <Typography variant="body2" color="text.secondary">

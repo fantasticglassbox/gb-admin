@@ -69,6 +69,7 @@ import {
 } from '../types';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { pageHeaderSx } from '../utils/responsive';
 
 const AdvertisementsManagement: React.FC = () => {
   const { hasRole, user } = useAuth();
@@ -1571,7 +1572,7 @@ const AdvertisementsManagement: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Typography variant="h4" component="h1">
           Advertisements Management
         </Typography>

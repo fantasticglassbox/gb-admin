@@ -58,6 +58,7 @@ import { apiService } from '../services/api';
 import PairDeviceDialog from '../components/PairDeviceDialog';
 import PairDeviceByScan from '../components/PairDeviceByScan';
 import DeviceLayoutDialog from '../components/DeviceLayoutDialog';
+import { pageHeaderSx } from '../utils/responsive';
 import { useAuth } from '../contexts/AuthContext';
 
 // Section header inside the device drawer form. Replaces the old
@@ -665,7 +666,7 @@ const DevicesManagement: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Typography variant="h4" component="h1">
           Devices Management
         </Typography>

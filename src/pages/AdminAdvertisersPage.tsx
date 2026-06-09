@@ -39,6 +39,7 @@ import {
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
 import { Advertiser, AdvertiserCategory, Publisher } from '../types';
+import { pageHeaderSx } from '../utils/responsive';
 
 const CATEGORIES: AdvertiserCategory[] = [
   'FOOD', 'BEVERAGE', 'RETAIL', 'BEAUTY', 'FASHION',
@@ -156,7 +157,7 @@ const AdminAdvertisersPage: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4">Advertisers</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

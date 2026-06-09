@@ -40,6 +40,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Device, Layout, Outlet, OutletType } from '../types';
 import OperatingHoursEditor from '../components/OperatingHoursEditor';
 import { Dialog } from '@mui/material';
+import { pageHeaderSx } from '../utils/responsive';
 
 // Dedicated outlets page for venue_partner users. Skips the
 // VenuePartner master/detail (which would leak other venues' rows)
@@ -207,7 +208,7 @@ const VenueOutletsPage: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4">Outlets</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>

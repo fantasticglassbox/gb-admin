@@ -50,6 +50,7 @@ import { apiService } from '../services/api';
 import { formatCompactNumber, formatMonthDisplay, formatCurrencyDetailed } from '../utils/formatters';
 // Using existing types from the system
 import type { User as SystemUser, Device as SystemDevice, Advertisement as SystemAdvertisement } from '../types';
+import { pageHeaderSx } from '../utils/responsive';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
@@ -288,7 +289,7 @@ const RealAdminDashboard: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box sx={pageHeaderSx}>
         <Box>
           <Typography variant="h4" gutterBottom>
             <DashboardIcon sx={{ mr: 1, verticalAlign: 'middle' }} />

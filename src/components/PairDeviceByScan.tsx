@@ -257,14 +257,14 @@ const PairDeviceByScan: React.FC<Props> = ({
             zIndex: 2,
             bgcolor: 'background.paper',
             borderBottom: '1px solid #E8E2D7',
-            px: 3,
+            px: { xs: 2, sm: 3 },
             py: 2,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}
         >
-          <Box>
+          <Box sx={{ minWidth: 0, flex: 1, mr: 1 }}>
             <Typography
               sx={{
                 fontSize: 11,
@@ -276,7 +276,11 @@ const PairDeviceByScan: React.FC<Props> = ({
             >
               Pair device
             </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            <Typography
+              variant="h6"
+              noWrap
+              sx={{ fontWeight: 700, fontSize: { xs: '1rem', sm: '1.25rem' } }}
+            >
               Scan the QR on the screen
             </Typography>
           </Box>
@@ -285,7 +289,7 @@ const PairDeviceByScan: React.FC<Props> = ({
           </IconButton>
         </Box>
 
-        <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2 }}>
+        <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 2, sm: 3 }, py: 2 }}>
           <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
             <Button
               variant={mode === 'scan' ? 'contained' : 'outlined'}
@@ -432,7 +436,7 @@ const PairDeviceByScan: React.FC<Props> = ({
             bottom: 0,
             bgcolor: 'background.paper',
             borderTop: '1px solid #E8E2D7',
-            px: 3,
+            px: { xs: 2, sm: 3 },
             py: 2,
             display: 'flex',
             justifyContent: 'flex-end',
