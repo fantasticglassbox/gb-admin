@@ -289,7 +289,18 @@ const PairDeviceByScan: React.FC<Props> = ({
           </IconButton>
         </Box>
 
-        <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 2, sm: 3 }, py: 2 }}>
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: 'auto',
+            // Clip any horizontal overflow from the html5-qrcode
+            // injected video (which renders at the camera's native
+            // resolution and can push past the container width).
+            overflowX: 'hidden',
+            px: { xs: 2, sm: 3 },
+            py: 2,
+          }}
+        >
           <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
             <Button
               variant={mode === 'scan' ? 'contained' : 'outlined'}
@@ -330,6 +341,13 @@ const PairDeviceByScan: React.FC<Props> = ({
                   // overlay is 240px; a 280px container hugs it
                   // closely while keeping the outlet picker + Pair
                   // button visible below the fold.
+                  //
+                  // The `!important` overrides on inner elements
+                  // defeat html5-qrcode's inline-style sizing —
+                  // without them the injected <video> element
+                  // renders at the camera's native resolution
+                  // (~640×480) and the right edge spills off-screen
+                  // on a phone.
                   width: '100%',
                   maxWidth: 280,
                   aspectRatio: '1 / 1',
@@ -338,7 +356,20 @@ const PairDeviceByScan: React.FC<Props> = ({
                   borderRadius: 2,
                   overflow: 'hidden',
                   mb: 1,
-                  '& video': { objectFit: 'cover' },
+                  position: 'relative',
+                  '& video': {
+                    width: '100% !important',
+                    height: '100% !important',
+                    objectFit: 'cover',
+                  },
+                  '& > div': {
+                    width: '100% !important',
+                    height: '100% !important',
+                  },
+                  '& canvas': {
+                    width: '100% !important',
+                    height: 'auto !important',
+                  },
                 }}
               />
               <Typography variant="caption" color="text.secondary">
