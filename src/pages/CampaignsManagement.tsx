@@ -394,15 +394,23 @@ const CampaignsManagement: React.FC = () => {
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      {/* Submit-to-venues is a one-way action: it
-                          fans out approval rows AND flips the
-                          campaign DRAFT → PUBLISHED in a single
-                          backend transaction. Once PUBLISHED the
-                          button disappears; the campaign is live and
-                          cannot be un-submitted (the publisher would
-                          create a fresh campaign to retarget). */}
-                      {c.state === 'DRAFT' && (c.assets?.length || 0) > 0 && (
-                        <Tooltip title="Submit to venues (publishes the campaign — irreversible)">
+                      {/* Submit-to-venues is shown on both DRAFT and
+                          PUBLISHED. On DRAFT it's the initial fan-out
+                          that also flips state to PUBLISHED. On
+                          PUBLISHED it's an incremental "add more
+                          venues" — the backend per-venue dedup makes
+                          adding the same venue twice a no-op, so the
+                          publisher can safely keep adding new ones
+                          throughout the campaign's life. */}
+                      {(c.state === 'DRAFT' || c.state === 'PUBLISHED') &&
+                        (c.assets?.length || 0) > 0 && (
+                        <Tooltip
+                          title={
+                            c.state === 'DRAFT'
+                              ? 'Submit to venues'
+                              : 'Add more venues to this campaign'
+                          }
+                        >
                           <IconButton
                             size="small"
                             onClick={() =>

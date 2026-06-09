@@ -677,42 +677,44 @@ const CampaignSubmitTargeting: React.FC = () => {
             </Alert>
           )}
 
-          {/* Non-DRAFT campaigns can't be submitted — show a clear
-              read-only banner instead of a disabled button so the
-              user understands why and what to do. */}
-          {campaign.state !== 'DRAFT' ? (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              This campaign is <strong>{campaign.state}</strong> — it has
-              already been submitted to venues and cannot be submitted
-              again. Create a new campaign if you need to retarget.
+          {/* Two variants of the warning depending on the campaign's
+              current state. Either way, submitting venues that are
+              already targeted is a server-side no-op — only new
+              venues get fanned-out approval rows. */}
+          {campaign.state === 'DRAFT' ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <strong>Submitting publishes the campaign.</strong>{' '}
+              Approval requests fan out to the venues you pick below
+              and the campaign goes live. You can come back later to
+              add more venues; existing approvals stay untouched.
             </Alert>
           ) : (
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              <strong>This action is irreversible.</strong> Submitting
-              publishes the campaign and fans out approval requests to
-              the selected venues. You can't unsubmit — to retarget
-              you'd create a new campaign.
+            <Alert severity="info" sx={{ mb: 2 }}>
+              This campaign is <strong>{campaign.state}</strong>. Pick
+              any venues you haven't targeted yet — they'll receive a
+              fresh approval request. Venues already on this campaign
+              are skipped automatically.
             </Alert>
           )}
 
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="contained"
-              disabled={
-                submitting ||
-                groupsSelectedCount === 0 ||
-                campaign.state !== 'DRAFT'
-              }
+              disabled={submitting || groupsSelectedCount === 0}
               onClick={handleSubmit}
             >
-              {submitting ? 'Submitting…' : 'Submit & publish'}
+              {submitting
+                ? 'Submitting…'
+                : campaign.state === 'DRAFT'
+                  ? 'Submit & publish'
+                  : 'Submit to venues'}
             </Button>
             <Button
               variant="outlined"
               onClick={() => navigate(-1)}
               disabled={submitting}
             >
-              {campaign.state !== 'DRAFT' ? 'Back' : 'Cancel'}
+              Cancel
             </Button>
           </Stack>
         </Box>
