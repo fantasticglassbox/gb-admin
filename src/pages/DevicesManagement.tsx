@@ -992,16 +992,47 @@ const DevicesManagement: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {device.location?.address ? (
-                        <Box display="flex" alignItems="center" gap={0.5}>
-                          <LocationIcon fontSize="small" color="action" />
-                          <Typography variant="body2" noWrap>
-                            {device.location.address}
-                          </Typography>
-                        </Box>
-                      ) : (
-                        'N/A'
-                      )}
+                      {(() => {
+                        // Backend returns flat V2 fields (address, city,
+                        // ...) — not a nested `location` object. The
+                        // legacy `device.location?.address` read here
+                        // always rendered "N/A".
+                        //
+                        // gb-media captures lat/lng at pair time but
+                        // doesn't reverse-geocode, so address-shaped
+                        // fields on the device row are usually empty.
+                        // Fall back through the assigned outlet — the
+                        // device IS physically in that outlet and the
+                        // venue partner already curated its address, so
+                        // we get something readable for ~every device
+                        // without anyone re-typing.
+                        const d = device as any;
+                        const outlet = d.outlet_id
+                          ? allOutlets.find((o) => o.id === d.outlet_id)
+                          : undefined;
+                        const candidates = [
+                          d.location_name,
+                          d.address,
+                          d.district,
+                          d.city,
+                          outlet?.address,
+                          [outlet?.city, outlet?.province]
+                            .filter(Boolean)
+                            .join(', '),
+                        ].filter(
+                          (s): s is string =>
+                            typeof s === 'string' && s.trim() !== '',
+                        );
+                        if (candidates.length === 0) return 'N/A';
+                        return (
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <LocationIcon fontSize="small" color="action" />
+                            <Typography variant="body2" noWrap>
+                              {candidates[0]}
+                            </Typography>
+                          </Box>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
