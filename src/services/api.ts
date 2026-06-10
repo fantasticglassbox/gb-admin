@@ -941,6 +941,18 @@ class ApiService {
   }
 
   /**
+   * Admin-only: fully unpair a device. Clears outlet + venue + layout
+   * bindings and flips status to DEACTIVATED. The device's playlist
+   * poll then returns 401, gb-media drops its local pair token, and
+   * the on-site staff sees the pair-code screen ready for a fresh
+   * rescan. The device row, last_seen, and playback history are kept
+   * so re-pairing the same hardware reuses the same row.
+   */
+  async deactivateDevice(deviceId: string): Promise<void> {
+    await this.apiV2.post(`/devices/${deviceId}/deactivate`);
+  }
+
+  /**
    * Pair a gb-media device using the 6-character code displayed on its screen.
    * Creates the device row tagged with the chosen venue (and optional outlet),
    * flips the PairCode to CLAIMED — the device's next /pair/status poll then

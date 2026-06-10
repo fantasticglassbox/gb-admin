@@ -80,7 +80,18 @@ export interface Device {
   // V2 multi-zone layout binding. Empty = fullscreen (single main zone,
   // playlist behaves as before). Set via admin "Set layout" dialog.
   layout_id?: string;
-  status: 'active' | 'inactive' | 'maintenance' | 'offline';
+  // Backend enum is uppercase: REGISTERED (paired but no outlet),
+  // ACTIVE (outlet-assigned and playable), DEACTIVATED (admin unpaired,
+  // playlist returns 401 forcing rescan). Lowercase legacy values are
+  // kept for backwards compat with screens that haven't been migrated.
+  status:
+    | 'REGISTERED'
+    | 'ACTIVE'
+    | 'DEACTIVATED'
+    | 'active'
+    | 'inactive'
+    | 'maintenance'
+    | 'offline';
   device_type: 'tablet' | 'phone' | 'tv' | 'kiosk';
   location?: {
     latitude?: number;
@@ -557,7 +568,16 @@ export interface DeviceResponse {
   device_id: string;
   device_secret?: string;
   merchant_id: string;
-  status: 'active' | 'inactive' | 'maintenance' | 'offline';
+  // Mirrors Device.status — backend enum is uppercase, lowercase values
+  // remain for legacy screens.
+  status:
+    | 'REGISTERED'
+    | 'ACTIVE'
+    | 'DEACTIVATED'
+    | 'active'
+    | 'inactive'
+    | 'maintenance'
+    | 'offline';
   device_type: 'tablet' | 'phone' | 'tv' | 'kiosk';
   location?: {
     latitude?: number;

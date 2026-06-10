@@ -49,6 +49,7 @@ import {
   LocationOn as LocationIcon,
   Store as StoreIcon,
   LinkOff as LinkOffIcon,
+  PowerSettingsNew as PowerSettingsNewIcon,
   ViewQuilt as LayoutIcon,
   QrCodeScanner as QrCodeScannerIcon,
   MoreVert as MoreVertIcon,
@@ -505,6 +506,34 @@ const DevicesManagement: React.FC = () => {
       await loadDevices();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to unassign device');
+    }
+  };
+
+  /**
+   * Full unpair — clears outlet/venue/layout and flips the row to
+   * DEACTIVATED. The next time gb-media polls, the playlist endpoint
+   * returns 401 and the device falls back to the pair screen. The
+   * confirm copy spells this out so the operator knows on-site staff
+   * will need to rescan the new QR code.
+   */
+  const handleDeactivateDevice = async (device: DeviceResponse) => {
+    if (
+      !window.confirm(
+        `Deactivate "${device.name || device.device_id}"?\n\n` +
+          `Outlet binding will be cleared and the TV will return to the ` +
+          `pair-code screen on its next sync (≤ 2 min). On-site staff will ` +
+          `need to rescan the QR code to reactivate it.\n\n` +
+          `Playback history is preserved.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await apiService.deactivateDevice(device.id);
+      setSuccess('Device deactivated');
+      await loadDevices();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to deactivate device');
     }
   };
 
@@ -1213,6 +1242,29 @@ const DevicesManagement: React.FC = () => {
                 <LinkOffIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText primary="Unassign outlet" />
+            </MenuItem>
+          ) : null,
+          // Full unpair — admin only, hidden once the device is
+          // already DEACTIVATED so we don't suggest the action twice.
+          // Lives in the destructive section because on-site staff will
+          // need to physically rescan the QR to bring it back.
+          hasRole('admin') && menuDevice.status !== 'DEACTIVATED' ? (
+            <MenuItem
+              key="deactivate"
+              onClick={() => {
+                const d = menuDevice;
+                closeRowMenu();
+                if (d) handleDeactivateDevice(d);
+              }}
+              sx={{ color: 'warning.main' }}
+            >
+              <ListItemIcon>
+                <PowerSettingsNewIcon
+                  fontSize="small"
+                  sx={{ color: 'warning.main' }}
+                />
+              </ListItemIcon>
+              <ListItemText primary="Deactivate (force re-pair)" />
             </MenuItem>
           ) : null,
           <Divider key="d2" />,

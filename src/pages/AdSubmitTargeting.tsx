@@ -361,22 +361,49 @@ const CampaignSubmitTargeting: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!campaignId) return;
+
+    // No outlet group picked → ask the publisher to confirm the
+    // venue-wide fallback. The backend writes one approval row per
+    // venue with empty outlet_group_id, which PlaylistForDevice's
+    // legacy branch treats as "play on every outlet under the venue".
+    // That's a fine default for blanket brand campaigns but a bad
+    // default for "this is for the Lift TVs only" intent — so make
+    // the publisher explicitly say yes.
     if (selectedGroupIds.size === 0) {
-      setError('Pick at least one outlet group before submitting.');
-      return;
-    }
-    // Derive the venue set from the selected groups — phase 3 fan-out
-    // is still venue-level. The per-group + exception-row fan-out lands
-    // when Epic-D phase 4 extends the submit contract.
-    const venueIds = new Set<string>();
-    selectedGroupIds.forEach((gid) => {
-      for (const [vId, groups] of Object.entries(groupsByVenue)) {
-        if (groups.some((g) => g.id === gid)) {
-          venueIds.add(vId);
-          break;
-        }
+      if (selectedVenueIds.length === 0) {
+        setError('Pick at least one venue before submitting.');
+        return;
       }
-    });
+      const venuesLabel =
+        selectedVenueIds.length === 1 ? '1 venue' : `${selectedVenueIds.length} venues`;
+      const ok = window.confirm(
+        `No outlet group selected — this campaign will play on EVERY ` +
+          `outlet under ${venuesLabel}.\n\n` +
+          `Continue with venue-wide targeting? If you meant to limit it to ` +
+          `specific outlet groups (e.g. only the Lift TVs), cancel and pick ` +
+          `the groups first.`,
+      );
+      if (!ok) return;
+    }
+
+    // Derive the venue set:
+    //  - groups picked → walk back to their owning venues (groups are
+    //    venue-scoped, so each id maps to exactly one venue)
+    //  - no groups picked → use whatever venues the publisher selected
+    //    directly (venue-wide fallback path, confirmed above)
+    const venueIds = new Set<string>();
+    if (selectedGroupIds.size > 0) {
+      selectedGroupIds.forEach((gid) => {
+        for (const [vId, groups] of Object.entries(groupsByVenue)) {
+          if (groups.some((g) => g.id === gid)) {
+            venueIds.add(vId);
+            break;
+          }
+        }
+      });
+    } else {
+      selectedVenueIds.forEach((vId) => venueIds.add(vId));
+    }
 
     setSubmitting(true);
     setError(null);
@@ -384,6 +411,10 @@ const CampaignSubmitTargeting: React.FC = () => {
       const res = await apiService.submitCampaign({
         campaign_id: campaignId,
         venue_partner_ids: Array.from(venueIds),
+        // Forward the per-group selection so the backend creates one
+        // approval row per (venue × group). Empty array → legacy
+        // venue-wide approval rows (one per venue).
+        outlet_group_ids: Array.from(selectedGroupIds),
         notes,
       });
       const created = res.created?.length || 0;
