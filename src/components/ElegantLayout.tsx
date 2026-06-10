@@ -44,8 +44,6 @@ import {
   AccountCircle as AccountIcon,
   AttachMoney as FeeSchemaIcon,
   CloudUpload as AssetsIcon,
-  Notifications as NotificationIcon,
-  Search as SearchIcon,
   Language as LanguageIcon,
   AppRegistration as RegistrationIcon,
   Public as DemographyIcon,
@@ -594,33 +592,11 @@ const ElegantLayout: React.FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.25, sm: 1 } }}>
-            {/* Search icon is decorative-only today (no handler) —
-                hide on mobile to claim back ~48px of viewport for
-                the language switcher + avatar. */}
-            <IconButton
-              sx={{
-                color: theme.palette.text.primary,
-                display: { xs: 'none', sm: 'inline-flex' },
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                },
-              }}
-            >
-              <SearchIcon />
-            </IconButton>
-
-            <IconButton
-              sx={{
-                color: theme.palette.text.primary,
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                },
-              }}
-            >
-              <Badge badgeContent={3} color="error">
-                <NotificationIcon />
-              </Badge>
-            </IconButton>
+            {/* Search and notification icons removed — both were
+                decorative placeholders (no handlers wired) and the
+                badge count was hardcoded. Reclaim the toolbar space
+                for the language switcher + avatar until either lands
+                a real backend. */}
 
             {/* Language Switcher — narrower on mobile so the avatar
                 doesn't get clipped. */}

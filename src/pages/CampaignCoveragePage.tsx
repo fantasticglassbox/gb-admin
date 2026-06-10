@@ -96,7 +96,10 @@ const CampaignCoveragePage: React.FC = () => {
       setCampaign(cmp);
       setApprovals(approvalsRes.data);
       setVenues(venuesRes.data);
-      setPlaybackErrors(errorsRes.data);
+      // Backend returns `data: null` (Go nil slice) when no errors
+      // are recorded for the window — coalesce to [] so downstream
+      // .filter / .sort don't blow up.
+      setPlaybackErrors(errorsRes.data ?? []);
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to load coverage');
     } finally {
