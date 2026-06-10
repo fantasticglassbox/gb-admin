@@ -1244,11 +1244,14 @@ const DevicesManagement: React.FC = () => {
               <ListItemText primary="Unassign outlet" />
             </MenuItem>
           ) : null,
-          // Full unpair — admin only, hidden once the device is
-          // already DEACTIVATED so we don't suggest the action twice.
-          // Lives in the destructive section because on-site staff will
-          // need to physically rescan the QR to bring it back.
-          hasRole('admin') && menuDevice.status !== 'DEACTIVATED' ? (
+          // Full unpair — admin or the device's owning venue partner.
+          // Hidden once the device is already DEACTIVATED so we don't
+          // suggest the action twice. Lives in the destructive section
+          // because on-site staff will need to physically rescan the
+          // QR to bring it back. The backend re-checks venue_partner_id
+          // ownership before letting the call through.
+          (hasRole('admin') || hasRole('venue_partner')) &&
+          menuDevice.status !== 'DEACTIVATED' ? (
             <MenuItem
               key="deactivate"
               onClick={() => {
