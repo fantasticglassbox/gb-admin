@@ -1017,7 +1017,7 @@ const DevicesManagement: React.FC = () => {
                           <ViewIcon />
                         </IconButton>
                       </Tooltip>
-                      {hasRole('admin') && (
+                      {(hasRole('admin') || hasRole('venue_partner')) && (
                         <Tooltip title="More actions">
                           <IconButton
                             size="small"
@@ -1284,20 +1284,25 @@ const DevicesManagement: React.FC = () => {
             </ListItemIcon>
             <ListItemText primary="Edit device" />
           </MenuItem>,
-          <MenuItem
-            key="delete"
-            onClick={() => {
-              const d = menuDevice;
-              closeRowMenu();
-              if (d) handleDeleteDevice(d);
-            }}
-            sx={{ color: 'error.main' }}
-          >
-            <ListItemIcon>
-              <DeleteIcon fontSize="small" sx={{ color: 'error.main' }} />
-            </ListItemIcon>
-            <ListItemText primary="Delete device" />
-          </MenuItem>,
+          // Full row delete — admin only. Venue partners get the
+          // softer Deactivate path above; delete also wipes the
+          // device_id history we need for proof-of-play replay.
+          hasRole('admin') ? (
+            <MenuItem
+              key="delete"
+              onClick={() => {
+                const d = menuDevice;
+                closeRowMenu();
+                if (d) handleDeleteDevice(d);
+              }}
+              sx={{ color: 'error.main' }}
+            >
+              <ListItemIcon>
+                <DeleteIcon fontSize="small" sx={{ color: 'error.main' }} />
+              </ListItemIcon>
+              <ListItemText primary="Delete device" />
+            </MenuItem>
+          ) : null,
         ]}
       </Menu>
 
