@@ -38,6 +38,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import SendIcon from '@mui/icons-material/Send';
 import InsightsIcon from '@mui/icons-material/Insights';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import UnpublishedOutlinedIcon from '@mui/icons-material/UnpublishedOutlined';
+import { ListItemIcon, ListItemText, Menu } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
 import { Advertiser, ApprovalSummary, Campaign, CampaignPlaybackRow } from '../types';
@@ -217,6 +220,22 @@ const CampaignsManagement: React.FC = () => {
       .catch(() => setPlaybackByCampaign({}));
   }, []);
 
+  // ---- row action menu ----
+  // One MoreVert per row opens a context menu — keeps the row visually
+  // calm (was 4+ icons crammed into one cell) and gives us a stable
+  // home for the new Unpublish action without making the row wider.
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const [menuCampaign, setMenuCampaign] = useState<Campaign | null>(null);
+  const openRowMenu = (e: React.MouseEvent<HTMLElement>, c: Campaign) => {
+    e.stopPropagation();
+    setMenuCampaign(c);
+    setMenuAnchor(e.currentTarget);
+  };
+  const closeRowMenu = () => {
+    setMenuAnchor(null);
+    setMenuCampaign(null);
+  };
+
   // ---- handlers ----
 
   const handleDelete = async (c: Campaign) => {
@@ -228,6 +247,29 @@ const CampaignsManagement: React.FC = () => {
       fetchCampaigns();
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Delete failed');
+    }
+  };
+
+  // PUBLISHED → INACTIVE. Within one device poll interval (≤2 min)
+  // every TV currently rendering this campaign drops it and moves on
+  // to the next eligible one (or the empty-state slate). Existing
+  // approvals are preserved so re-publishing later re-activates the
+  // same set of venues without re-asking.
+  const handleUnpublish = async (c: Campaign) => {
+    if (
+      !window.confirm(
+        `Unpublish "${c.title}"? It will stop playing on every device within 2 minutes. ` +
+          `Approvals are kept, so you can re-publish later without re-asking venues.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await apiService.unpublishCampaign(c.id);
+      setSuccess('Campaign unpublished');
+      fetchCampaigns();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Unpublish failed');
     }
   };
 
@@ -384,64 +426,15 @@ const CampaignsManagement: React.FC = () => {
                       align="right"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Tooltip title="Open editor">
+                      <Tooltip title="Actions">
                         <IconButton
                           size="small"
-                          onClick={() =>
-                            navigate(`${basePath}/campaigns/${c.id}/edit`)
-                          }
+                          aria-label={`Actions for ${c.title}`}
+                          onClick={(e) => openRowMenu(e, c)}
                         >
-                          <EditIcon fontSize="small" />
+                          <MoreVertIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      {/* Submit-to-venues is shown on both DRAFT and
-                          PUBLISHED. On DRAFT it's the initial fan-out
-                          that also flips state to PUBLISHED. On
-                          PUBLISHED it's an incremental "add more
-                          venues" — the backend per-venue dedup makes
-                          adding the same venue twice a no-op, so the
-                          publisher can safely keep adding new ones
-                          throughout the campaign's life. */}
-                      {(c.state === 'DRAFT' || c.state === 'PUBLISHED') &&
-                        (c.assets?.length || 0) > 0 && (
-                        <Tooltip
-                          title={
-                            c.state === 'DRAFT'
-                              ? 'Submit to venues'
-                              : 'Add more venues to this campaign'
-                          }
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              navigate(`${basePath}/campaigns/${c.id}/submit`)
-                            }
-                          >
-                            <SendIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {/* Coverage view — surfaces who the campaign was
-                          submitted to and the decision status. Shown
-                          for both DRAFT (empty state with "Submit now"
-                          shortcut) and PUBLISHED. */}
-                      <Tooltip title="Coverage (submitted venues & status)">
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            navigate(`${basePath}/campaigns/${c.id}/coverage`)
-                          }
-                        >
-                          <InsightsIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {(hasRole('publisher') || hasRole('admin')) && (
-                        <Tooltip title="Delete">
-                          <IconButton size="small" onClick={() => handleDelete(c)}>
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -460,6 +453,97 @@ const CampaignsManagement: React.FC = () => {
             setPage(0);
           }}
         />
+
+        {/* Per-row action menu. Each MenuItem is gated on the
+            campaign's current state + caller role so impossible
+            transitions (Unpublish on a DRAFT, etc.) never render. */}
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor) && menuCampaign !== null}
+          onClose={closeRowMenu}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          {menuCampaign && (
+            <MenuItem
+              onClick={() => {
+                navigate(`${basePath}/campaigns/${menuCampaign.id}/edit`);
+                closeRowMenu();
+              }}
+            >
+              <ListItemIcon>
+                <EditIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Open editor</ListItemText>
+            </MenuItem>
+          )}
+          {menuCampaign &&
+            (menuCampaign.state === 'DRAFT' ||
+              menuCampaign.state === 'PUBLISHED') &&
+            (menuCampaign.assets?.length || 0) > 0 && (
+              <MenuItem
+                onClick={() => {
+                  navigate(`${basePath}/campaigns/${menuCampaign.id}/submit`);
+                  closeRowMenu();
+                }}
+              >
+                <ListItemIcon>
+                  <SendIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText>
+                  {menuCampaign.state === 'DRAFT'
+                    ? 'Submit to venues'
+                    : 'Add more venues'}
+                </ListItemText>
+              </MenuItem>
+            )}
+          {menuCampaign && (
+            <MenuItem
+              onClick={() => {
+                navigate(`${basePath}/campaigns/${menuCampaign.id}/coverage`);
+                closeRowMenu();
+              }}
+            >
+              <ListItemIcon>
+                <InsightsIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText>Coverage</ListItemText>
+            </MenuItem>
+          )}
+          {menuCampaign &&
+            menuCampaign.state === 'PUBLISHED' &&
+            (hasRole('publisher') || hasRole('admin')) && (
+              <MenuItem
+                onClick={() => {
+                  const c = menuCampaign;
+                  closeRowMenu();
+                  void handleUnpublish(c);
+                }}
+              >
+                <ListItemIcon>
+                  <UnpublishedOutlinedIcon
+                    fontSize="small"
+                    color="warning"
+                  />
+                </ListItemIcon>
+                <ListItemText>Unpublish</ListItemText>
+              </MenuItem>
+            )}
+          {menuCampaign && (hasRole('publisher') || hasRole('admin')) && (
+            <MenuItem
+              onClick={() => {
+                const c = menuCampaign;
+                closeRowMenu();
+                void handleDelete(c);
+              }}
+            >
+              <ListItemIcon>
+                <DeleteOutlineIcon fontSize="small" color="error" />
+              </ListItemIcon>
+              <ListItemText sx={{ color: 'error.main' }}>Delete</ListItemText>
+            </MenuItem>
+          )}
+        </Menu>
       </TableContainer>
     </Box>
   );

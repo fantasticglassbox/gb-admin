@@ -1445,6 +1445,15 @@ class ApiService {
     return response.data?.data ?? response.data;
   }
 
+  /** PUBLISHED → INACTIVE. Stops playback within ~one device poll
+   *  interval (device playlist filters on state = PUBLISHED). Approvals
+   *  are preserved so the publisher can re-enable later via
+   *  publishCampaign() without re-asking every venue partner. */
+  async unpublishCampaign(id: string): Promise<Campaign> {
+    const response = await this.apiV2.post(`/campaigns/${id}/unpublish`);
+    return response.data?.data ?? response.data;
+  }
+
   async addCampaignAsset(
     campaignId: string,
     payload: CreateCampaignAssetRequest,
