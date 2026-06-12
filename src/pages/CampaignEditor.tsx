@@ -295,6 +295,29 @@ const CampaignEditor: React.FC = () => {
 
   const isPending = (a: CampaignAsset) => a.id.startsWith('pending-');
 
+  /** Reads a video file's runtime locally so we don't ship a wrong
+   *  duration_seconds to the backend. The browser's <video> element
+   *  loads just the metadata (no full download) and exposes `duration`
+   *  in seconds. Falls back to a safe default if the codec is exotic
+   *  or the file is malformed — better than blocking the upload. */
+  const probeVideoDuration = (file: File): Promise<number> =>
+    new Promise((resolve) => {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      const url = URL.createObjectURL(file);
+      const done = (sec: number) => {
+        URL.revokeObjectURL(url);
+        resolve(sec);
+      };
+      v.onloadedmetadata = () => {
+        const d = v.duration;
+        done(Number.isFinite(d) && d > 0 ? Math.round(d) : 10);
+      };
+      v.onerror = () => done(10);
+      v.src = url;
+    });
+
   /** Upload to S3 and either POST an asset row (edit mode) or stage
    *  client-side (create mode). The page-level state owns this so the
    *  asset section is functional from the very first render of a new
@@ -306,6 +329,12 @@ const CampaignEditor: React.FC = () => {
         const up: any = await apiService.uploadFile(file);
         const contentType: CampaignAssetType =
           file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+        // Auto-probe video duration from file metadata so the safety
+        // watchdog in gb-media (= duration + 30s) doesn't truncate a
+        // long video. Images keep the 8s default — publishers edit it
+        // inline if they want a different dwell.
+        const detected =
+          contentType === 'VIDEO' ? await probeVideoDuration(file) : 8;
         const sortBase = displayedAssets.filter(
           (a) => a.zone_slug === zoneSlug,
         ).length;
@@ -313,7 +342,7 @@ const CampaignEditor: React.FC = () => {
           zone_slug: zoneSlug,
           content_url: up.url,
           content_type: contentType,
-          duration_seconds: contentType === 'IMAGE' ? 8 : 10,
+          duration_seconds: detected,
           sort_order: sortBase,
           sha256: up.sha256 || '',
           size_bytes: up.size_bytes || 0,
@@ -350,6 +379,40 @@ const CampaignEditor: React.FC = () => {
         }
       } catch (e: any) {
         setError(e?.response?.data?.error || 'Delete failed');
+      }
+    },
+    [campaign],
+  );
+
+  /** Persist a duration_seconds edit. Staged (pre-create) assets get
+   *  patched in-place; saved assets PUT to the asset endpoint and
+   *  the campaign is re-fetched so the version + updated_at bumps
+   *  surface immediately. */
+  const handleUpdateDuration = useCallback(
+    async (asset: CampaignAsset, seconds: number) => {
+      try {
+        if (isPending(asset)) {
+          setPendingAssets((prev) =>
+            prev.map((a) =>
+              a.id === asset.id ? { ...a, duration_seconds: seconds } : a,
+            ),
+          );
+          return;
+        }
+        if (!campaign) return;
+        await apiService.updateCampaignAsset(campaign.id, asset.id, {
+          zone_slug: asset.zone_slug,
+          content_url: asset.content_url,
+          content_type: asset.content_type,
+          duration_seconds: seconds,
+          sort_order: asset.sort_order,
+          sha256: asset.sha256,
+          size_bytes: asset.size_bytes,
+        });
+        const fresh = await apiService.getCampaign(campaign.id);
+        setCampaign(fresh);
+      } catch (e: any) {
+        setError(e?.response?.data?.error || 'Update failed');
       }
     },
     [campaign],
@@ -621,6 +684,7 @@ const CampaignEditor: React.FC = () => {
               uploadingZone={uploadingZone}
               onUpload={handleUpload}
               onRemove={handleRemoveAsset}
+              onDurationChange={handleUpdateDuration}
             />
           </Paper>
         </Box>
@@ -790,12 +854,56 @@ const LayoutOption: React.FC<LayoutOptionProps> = ({
   </Box>
 );
 
+/** Tiny editable seconds field. Local-state edit, commit-on-blur so the
+ *  publisher can type "12" without the editor PATCHing on every digit.
+ *  Guards against 0 / negative / NaN — those would either lock the
+ *  player on a frame or trigger the safety watchdog. */
+const DurationField: React.FC<{
+  asset: CampaignAsset;
+  onChange: (seconds: number) => void | Promise<void>;
+}> = ({ asset, onChange }) => {
+  const [draft, setDraft] = useState(String(asset.duration_seconds || ''));
+  useEffect(() => {
+    setDraft(String(asset.duration_seconds || ''));
+  }, [asset.duration_seconds]);
+  const commit = () => {
+    const parsed = parseInt(draft, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setDraft(String(asset.duration_seconds || ''));
+      return;
+    }
+    if (parsed === asset.duration_seconds) return;
+    void onChange(parsed);
+  };
+  return (
+    <TextField
+      size="small"
+      type="number"
+      label="sec"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+      inputProps={{ min: 1, max: 600, step: 1, style: { textAlign: 'right' } }}
+      sx={{ width: 86 }}
+    />
+  );
+};
+
 interface AssetGridProps {
   zones: LayoutZone[];
   assets: CampaignAsset[];
   uploadingZone: string | null;
   onUpload: (file: File, zoneSlug: string) => Promise<void>;
   onRemove: (asset: CampaignAsset) => Promise<void>;
+  // Persist a new duration_seconds for an existing asset. Editor wires
+  // this to apiService.updateCampaignAsset; staged (pre-save) assets
+  // get patched in-place on the page-level state. Lets publishers
+  // override the auto-probed video runtime or set a non-default image
+  // dwell without re-uploading.
+  onDurationChange: (asset: CampaignAsset, seconds: number) => Promise<void>;
 }
 
 const AssetGrid: React.FC<AssetGridProps> = ({
@@ -804,6 +912,7 @@ const AssetGrid: React.FC<AssetGridProps> = ({
   uploadingZone,
   onUpload,
   onRemove,
+  onDurationChange,
 }) => {
   const grouped = useMemo(() => {
     const m: Record<string, CampaignAsset[]> = {};
@@ -896,9 +1005,13 @@ const AssetGrid: React.FC<AssetGridProps> = ({
                     {a.content_url}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {a.content_type} · {a.duration_seconds}s · v{a.version || 1}
+                    {a.content_type} · v{a.version || 1}
                   </Typography>
                 </Box>
+                <DurationField
+                  asset={a}
+                  onChange={(sec) => onDurationChange(a, sec)}
+                />
                 <Tooltip title="Remove">
                   <IconButton size="small" onClick={() => onRemove(a)}>
                     <DeleteOutlineIcon fontSize="small" />
