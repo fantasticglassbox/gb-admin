@@ -300,13 +300,25 @@ const DevicesManagement: React.FC = () => {
         (filters as any).layout_id = layoutFilter;
       }
 
-      // Venue partner role: use the V2 venue-scoped endpoint so the
-      // list only contains devices on outlets of their own venue.
-      // Falls back to the unscoped list if the JWT somehow lacks the
-      // claim (shouldn't happen — middleware sets it).
+      // Listing endpoint selection:
+      //  - venue_partner role → V2 venue-scoped, pinned to their JWT
+      //    claim so they can't peek at other venues.
+      //  - admin with a venue picked → also V2 venue-scoped, because
+      //    the V1 /devices endpoint never supported a venue_partner_id
+      //    filter; the dropdown silently did nothing on this page.
+      //  - admin with no venue picked → V1 /devices (legacy, but
+      //    handles status/type/search/layout filters correctly).
       let response;
       if (hasRole('venue_partner') && user?.venue_partner_id) {
-        response = await apiService.listDevicesByVenuePartner(user.venue_partner_id, filters);
+        response = await apiService.listDevicesByVenuePartner(
+          user.venue_partner_id,
+          filters,
+        );
+      } else if (venueFilter) {
+        response = await apiService.listDevicesByVenuePartner(
+          venueFilter,
+          filters,
+        );
       } else {
         response = await apiService.getDevices(filters);
       }
