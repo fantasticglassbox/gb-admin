@@ -953,6 +953,19 @@ class ApiService {
   }
 
   /**
+   * Repair a paired device: link a fresh pair code shown on a TV to an
+   * EXISTING device row instead of minting a new one. Use when on-site
+   * staff cleared app data — keeps outlet binding, layout, name, and
+   * proof-of-play history intact, just rotates the device's tokens.
+   * Admin or the device's owning venue partner.
+   */
+  async repairDevice(deviceId: string, code: string): Promise<void> {
+    await this.apiV2.post(`/devices/${deviceId}/repair`, {
+      code: code.replace(/\s+/g, '').toUpperCase(),
+    });
+  }
+
+  /**
    * Pair a gb-media device using the 6-character code displayed on its screen.
    * Creates the device row tagged with the chosen venue (and optional outlet),
    * flips the PairCode to CLAIMED — the device's next /pair/status poll then

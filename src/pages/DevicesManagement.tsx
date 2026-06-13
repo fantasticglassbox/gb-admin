@@ -509,6 +509,43 @@ const DevicesManagement: React.FC = () => {
     }
   };
 
+  // ----- repair (re-pair an existing device row to a fresh code) -----
+  // Avoids creating a duplicate device row every time on-site staff
+  // clears app data — same row, same outlet/layout/history, just new
+  // tokens. The CMS captures the 6-char code shown on the TV.
+  const [repairDialogDevice, setRepairDialogDevice] =
+    useState<DeviceResponse | null>(null);
+  const [repairCode, setRepairCode] = useState('');
+  const [repairing, setRepairing] = useState(false);
+
+  const handleOpenRepair = (device: DeviceResponse) => {
+    setRepairDialogDevice(device);
+    setRepairCode('');
+  };
+
+  const handleRepairSubmit = async () => {
+    if (!repairDialogDevice) return;
+    const normalized = repairCode.replace(/\s+/g, '').toUpperCase();
+    if (normalized.length < 4) {
+      setError('Pair code looks too short — check the screen and retype.');
+      return;
+    }
+    setRepairing(true);
+    try {
+      await apiService.repairDevice(repairDialogDevice.id, normalized);
+      setSuccess(
+        `Re-paired "${repairDialogDevice.name || repairDialogDevice.device_id}". The TV will pick up its tokens within a few seconds.`,
+      );
+      setRepairDialogDevice(null);
+      setRepairCode('');
+      await loadDevices();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to repair device');
+    } finally {
+      setRepairing(false);
+    }
+  };
+
   /**
    * Full unpair — clears outlet/venue/layout and flips the row to
    * DEACTIVATED. The next time gb-media polls, the playlist endpoint
@@ -1275,6 +1312,28 @@ const DevicesManagement: React.FC = () => {
               <ListItemText primary="Unassign outlet" />
             </MenuItem>
           ) : null,
+          // Re-pair: link a fresh code shown on the TV to THIS row
+          // instead of claiming a new one. Avoids duplicate device
+          // rows after on-site staff clears app data. Same RBAC as
+          // Deactivate (admin OR owning venue partner).
+          (hasRole('admin') || hasRole('venue_partner')) ? (
+            <MenuItem
+              key="repair"
+              onClick={() => {
+                const d = menuDevice;
+                closeRowMenu();
+                if (d) handleOpenRepair(d);
+              }}
+            >
+              <ListItemIcon>
+                <QrCodeScannerIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText
+                primary="Re-pair to new code"
+                secondary="Type the code shown on the TV"
+              />
+            </MenuItem>
+          ) : null,
           // Full unpair — admin or the device's owning venue partner.
           // Hidden once the device is already DEACTIVATED so we don't
           // suggest the action twice. Lives in the destructive section
@@ -1803,6 +1862,58 @@ const DevicesManagement: React.FC = () => {
           loadDevices();
         }}
       />
+
+      {/* Re-pair dialog — accepts the 6-char code shown on a TV and
+          links it to the existing device row instead of minting a new
+          one. Keeps the outlet binding, layout, name, and history. */}
+      <Dialog
+        open={!!repairDialogDevice}
+        onClose={() => !repairing && setRepairDialogDevice(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Re-pair device</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {repairDialogDevice
+              ? `Type the 6-character code currently shown on "${repairDialogDevice.name || repairDialogDevice.device_id}". The TV will pick up its existing outlet, layout, and history.`
+              : ''}
+          </Typography>
+          <TextField
+            label="Pair code"
+            value={repairCode}
+            onChange={(e) => setRepairCode(e.target.value.toUpperCase())}
+            placeholder="ABC-123"
+            autoFocus
+            fullWidth
+            inputProps={{
+              maxLength: 8,
+              style: {
+                fontFamily: 'monospace',
+                fontSize: 22,
+                letterSpacing: 4,
+                textAlign: 'center',
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setRepairDialogDevice(null)}
+            disabled={repairing}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleRepairSubmit}
+            disabled={repairing || repairCode.replace(/\s+/g, '').length < 4}
+            startIcon={repairing ? <CircularProgress size={16} /> : null}
+          >
+            {repairing ? 'Pairing…' : 'Re-pair'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
