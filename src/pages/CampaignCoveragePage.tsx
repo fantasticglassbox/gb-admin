@@ -27,6 +27,7 @@ import {
   Campaign,
   CampaignApproval,
   CampaignApprovalStatus,
+  OutletGroup,
   PlaybackErrorRow,
   VenuePartner,
 } from '../types';
@@ -61,6 +62,7 @@ const CampaignCoveragePage: React.FC = () => {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [approvals, setApprovals] = useState<CampaignApproval[]>([]);
   const [venues, setVenues] = useState<VenuePartner[]>([]);
+  const [outletGroups, setOutletGroups] = useState<OutletGroup[]>([]);
   const [playbackErrors, setPlaybackErrors] = useState<PlaybackErrorRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +102,21 @@ const CampaignCoveragePage: React.FC = () => {
       // are recorded for the window — coalesce to [] so downstream
       // .filter / .sort don't blow up.
       setPlaybackErrors(errorsRes.data ?? []);
+
+      // Outlet groups are venue-scoped on the API so we lazy-fetch the
+      // groups for each distinct venue the campaign was submitted to.
+      // Failures are swallowed per-venue (e.g. a venue partner role
+      // can't fetch another venue's groups) — the row just falls back
+      // to showing the raw group id instead of a display name.
+      const venueIds = Array.from(
+        new Set(approvalsRes.data.map((a) => a.venue_partner_id)),
+      );
+      const groupBuckets = await Promise.all(
+        venueIds.map((vId) =>
+          apiService.listOutletGroupsForVenue(vId).catch(() => [] as OutletGroup[]),
+        ),
+      );
+      setOutletGroups(groupBuckets.flat());
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Failed to load coverage');
     } finally {
@@ -142,6 +159,40 @@ const CampaignCoveragePage: React.FC = () => {
     });
     return m;
   }, [approvals]);
+
+  const outletGroupById = useMemo(() => {
+    const m = new Map<string, OutletGroup>();
+    outletGroups.forEach((g) => m.set(g.id, g));
+    return m;
+  }, [outletGroups]);
+
+  // "Deployed right now" = approval is APPROVED + campaign is
+  // PUBLISHED + the current time falls inside the campaign's run
+  // window. Mirrors PlaylistForDevice's gating on the device side so
+  // this stat is the publisher's view of "what's reaching screens".
+  // Note: this is venue-scope; device-level rendering also depends on
+  // the outlet group filter, but if the venue is APPROVED + in-window
+  // at least one outlet under it is eligible.
+  const isLive = useCallback(
+    (a: CampaignApproval) => {
+      if (a.status !== 'APPROVED') return false;
+      if (!campaign || campaign.state !== 'PUBLISHED') return false;
+      const now = Date.now();
+      const start = campaign.published_time_start
+        ? new Date(campaign.published_time_start).getTime()
+        : -Infinity;
+      const end = campaign.published_time_end
+        ? new Date(campaign.published_time_end).getTime()
+        : Infinity;
+      return now >= start && now <= end;
+    },
+    [campaign],
+  );
+
+  const liveCount = useMemo(
+    () => approvals.filter(isLive).length,
+    [approvals, isLive],
+  );
 
   if (loading) {
     return (
@@ -230,6 +281,15 @@ const CampaignCoveragePage: React.FC = () => {
             value={approvals.length}
             sublabel={`${approvals.length === 1 ? 'venue' : 'venues'}`}
           />
+          {/* Live = APPROVED + campaign published + within run window.
+              This is the publisher's answer to "where is my campaign
+              actually deployed right now". */}
+          <Stat
+            label="Deployed now"
+            value={liveCount}
+            color="#15803D"
+            sublabel={liveCount === 0 ? 'no live venues' : 'live on screens'}
+          />
           <Stat
             label="Approved"
             value={counts.APPROVED}
@@ -281,6 +341,7 @@ const CampaignCoveragePage: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell>Venue</TableCell>
+                <TableCell>Outlets targeted</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Requested at</TableCell>
                 <TableCell>Decided at</TableCell>
@@ -297,6 +358,10 @@ const CampaignCoveragePage: React.FC = () => {
                     : a.status === 'REVOKED'
                       ? a.revoked_reason
                       : '';
+                const group = a.outlet_group_id
+                  ? outletGroupById.get(a.outlet_group_id)
+                  : undefined;
+                const live = isLive(a);
                 return (
                   <TableRow key={a.id} hover>
                     <TableCell>
@@ -312,15 +377,62 @@ const CampaignCoveragePage: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        size="small"
-                        label={palette.label}
-                        sx={{
-                          bgcolor: palette.bg,
-                          color: palette.fg,
-                          fontWeight: 700,
-                        }}
-                      />
+                      {/* Empty outlet_group_id = venue-wide approval.
+                          Spell it out so the publisher knows their ad
+                          is hitting every outlet under the venue, not
+                          a curated subset. */}
+                      {a.outlet_group_id ? (
+                        <>
+                          <Typography variant="body2">
+                            {group?.display_name || a.outlet_group_id}
+                          </Typography>
+                          {group?.kind && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                            >
+                              {group.kind === 'ANY'
+                                ? 'all outlets'
+                                : group.kind === 'SYSTEM_AUTO'
+                                  ? 'auto'
+                                  : 'curated'}
+                            </Typography>
+                          )}
+                        </>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          All outlets in venue
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Stack
+                        direction="row"
+                        spacing={0.75}
+                        alignItems="center"
+                      >
+                        <Chip
+                          size="small"
+                          label={palette.label}
+                          sx={{
+                            bgcolor: palette.bg,
+                            color: palette.fg,
+                            fontWeight: 700,
+                          }}
+                        />
+                        {live && (
+                          <Chip
+                            size="small"
+                            label="LIVE"
+                            sx={{
+                              bgcolor: '#15803D',
+                              color: 'white',
+                              fontWeight: 700,
+                              letterSpacing: 0.5,
+                            }}
+                          />
+                        )}
+                      </Stack>
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption">
