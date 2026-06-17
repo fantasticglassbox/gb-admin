@@ -465,11 +465,27 @@ class ApiService {
     await this.api.put(`/advertisements/${id}`, { state: 'REJECTED' });
   }
 
-  // File upload for advertisements
+  // File upload for advertisements + campaign assets.
+  //
+  // 100 MB hard cap. The server tier allows larger bodies (nginx is at
+  // 500 MB) but on the gb-media side an asset that big stalls the disk
+  // cache and blows past the per-device 4 GB budget after only a few
+  // creatives. Plus bucket egress scales linearly with file size, and a
+  // single oversized clip can outweigh the rest of a rotation. Hard-
+  // failing here, before any bytes leave the browser, gives the
+  // publisher a clean "split or compress" prompt instead of waiting on
+  // a 30s-plus upload that ends in a 413.
   async uploadFile(file: File, onUploadProgress?: (progressEvent: any) => void): Promise<{ message: string; url: string }> {
+    const MAX_BYTES = 100 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      throw new Error(
+        `File is ${mb} MB — over the 100 MB limit. Please compress or split the asset before uploading.`,
+      );
+    }
     const formData = new FormData();
     formData.append('file', file);
-    
+
     const response = await this.api.post('/file', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

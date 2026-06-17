@@ -437,9 +437,16 @@ const AdvertisementsManagement: React.FC = () => {
       if (isVideo && detectedDuration) {
         console.log(`Video duration auto-detected: ${detectedDuration} seconds`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading file:', error);
-      setError('Failed to upload file');
+      // Surface client-side validation (100 MB cap from
+      // apiService.uploadFile) via error.message; backend errors come
+      // through .response.data.error first.
+      setError(
+        error?.response?.data?.error ||
+          error?.message ||
+          'Failed to upload file',
+      );
     } finally {
       setUploadingFile(false);
     }

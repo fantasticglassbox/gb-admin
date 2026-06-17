@@ -355,7 +355,12 @@ const CampaignEditor: React.FC = () => {
           setPendingAssets((prev) => [...prev, makePendingAsset(payload)]);
         }
       } catch (e: any) {
-        setError(e?.response?.data?.error || 'Upload failed');
+        // Surface client-side validation errors (e.g. 100 MB size cap
+        // thrown from apiService.uploadFile) via e.message; server
+        // errors still come through .response.data.error first.
+        setError(
+          e?.response?.data?.error || e?.message || 'Upload failed',
+        );
       } finally {
         setUploadingZone(null);
       }
