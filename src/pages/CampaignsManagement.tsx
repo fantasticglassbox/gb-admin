@@ -288,13 +288,7 @@ const CampaignsManagement: React.FC = () => {
             asset per layout zone and ships as a single booking decision.
           </Typography>
         </Box>
-        {/* Temporarily disabled while we roll out v38 to the device
-            fleet. v38 caches assets on disk so the bucket isn't hit on
-            every loop; until every TV is upgraded, every new asset
-            published goes straight to bandwidth pressure on s3 because
-            older builds keep re-fetching it. Re-enable once the fleet
-            is upgraded (track via gb-media app_version on devices). */}
-        {false && (hasRole('publisher') || hasRole('admin')) && (
+        {(hasRole('publisher') || hasRole('admin')) && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
