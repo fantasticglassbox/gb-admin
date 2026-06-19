@@ -258,13 +258,69 @@ const CampaignSubmitTargeting: React.FC = () => {
     const run = async () => {
       if (!campaignId) return;
       try {
-        const [cmp, venuesPage] = await Promise.all([
+        const [cmp, venuesPage, approvalsPage] = await Promise.all([
           apiService.getCampaign(campaignId),
           apiService.listVenuePartners({ limit: 200 }),
+          // Existing approvals — pre-fills the targeting picker with
+          // venues + outlet groups that are already in the campaign's
+          // booking calendar (PROPOSED or APPROVED). Without this the
+          // publisher had to manually re-select everything to add one
+          // venue. REJECTED / REVOKED are excluded since those are
+          // historical and not part of the active rollout.
+          apiService.listCampaignApprovals({
+            campaign_id: campaignId,
+            limit: 1000,
+          }),
         ]);
         if (cancelled) return;
         setCampaign(cmp);
         setAllVenues(venuesPage.data || []);
+
+        const activeApprovals = (approvalsPage.data || []).filter(
+          (a) => a.status === 'PROPOSED' || a.status === 'APPROVED',
+        );
+        if (activeApprovals.length > 0) {
+          // Pre-select venues (dedup against multiple approvals per
+          // venue — possible if a campaign was submitted to several
+          // outlet groups inside the same venue).
+          const venueIds = Array.from(
+            new Set(activeApprovals.map((a) => a.venue_partner_id)),
+          );
+          setSelectedVenueIds(venueIds);
+
+          // Pre-select outlet groups. Skip approvals with empty
+          // outlet_group_id — those are venue-wide and intentionally
+          // don't map to a group chip.
+          const groupIds = new Set<string>();
+          activeApprovals.forEach((a) => {
+            if (a.outlet_group_id) groupIds.add(a.outlet_group_id);
+          });
+          setSelectedGroupIds(groupIds);
+
+          // Eagerly fetch the outlet-group lists for those venues so
+          // the chips render with display names instead of raw IDs on
+          // first paint.
+          const uniqueVenues = Array.from(
+            new Set(activeApprovals.map((a) => a.venue_partner_id)),
+          );
+          const groupBuckets: { vId: string; gs: OutletGroup[] }[] =
+            await Promise.all(
+              uniqueVenues.map((vId) =>
+                apiService
+                  .listOutletGroupsForVenue(vId)
+                  .then((gs) => ({ vId, gs }))
+                  .catch(() => ({ vId, gs: [] as OutletGroup[] })),
+              ),
+            );
+          if (cancelled) return;
+          setGroupsByVenue((prev) => {
+            const next = { ...prev };
+            groupBuckets.forEach(({ vId, gs }) => {
+              next[vId] = gs;
+            });
+            return next;
+          });
+        }
       } catch (e: any) {
         setError(e?.message || 'Failed to load campaign');
       } finally {
