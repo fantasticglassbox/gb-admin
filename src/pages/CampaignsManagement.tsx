@@ -40,6 +40,7 @@ import SendIcon from '@mui/icons-material/Send';
 import InsightsIcon from '@mui/icons-material/Insights';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import UnpublishedOutlinedIcon from '@mui/icons-material/UnpublishedOutlined';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import { ListItemIcon, ListItemText, Menu } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import apiService from '../services/api';
@@ -270,6 +271,29 @@ const CampaignsManagement: React.FC = () => {
       fetchCampaigns();
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Unpublish failed');
+    }
+  };
+
+  // INACTIVE → PUBLISHED. The backend's publish endpoint already
+  // accepts INACTIVE as a valid source state, so a restart is just a
+  // re-publish — no new approval round-trip. Existing approvals
+  // remain in place; within one device poll interval (≤ 2 min) every
+  // approved venue's TVs pick the campaign back up.
+  const handleRestart = async (c: Campaign) => {
+    if (
+      !window.confirm(
+        `Restart "${c.title}"? It will start playing again on every venue that ` +
+          `already has an approved booking, within 2 minutes.`,
+      )
+    ) {
+      return;
+    }
+    try {
+      await apiService.publishCampaign(c.id);
+      setSuccess('Campaign restarted');
+      fetchCampaigns();
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Restart failed');
     }
   };
 
@@ -527,6 +551,29 @@ const CampaignsManagement: React.FC = () => {
                   />
                 </ListItemIcon>
                 <ListItemText>Unpublish</ListItemText>
+              </MenuItem>
+            )}
+          {/* Restart = INACTIVE → PUBLISHED via the existing publish
+              endpoint. Mirrors Unpublish on the inverse state, so the
+              menu always offers exactly one of the two depending on
+              where the campaign is. */}
+          {menuCampaign &&
+            menuCampaign.state === 'INACTIVE' &&
+            (hasRole('publisher') || hasRole('admin')) && (
+              <MenuItem
+                onClick={() => {
+                  const c = menuCampaign;
+                  closeRowMenu();
+                  void handleRestart(c);
+                }}
+              >
+                <ListItemIcon>
+                  <PlayCircleOutlineIcon
+                    fontSize="small"
+                    color="success"
+                  />
+                </ListItemIcon>
+                <ListItemText>Restart campaign</ListItemText>
               </MenuItem>
             )}
           {menuCampaign && (hasRole('publisher') || hasRole('admin')) && (
