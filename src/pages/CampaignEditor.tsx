@@ -27,6 +27,10 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   FormControlLabel,
@@ -322,6 +326,105 @@ const CampaignEditor: React.FC = () => {
    *  client-side (create mode). The page-level state owns this so the
    *  asset section is functional from the very first render of a new
    *  campaign — no "save first" hand-waving. */
+  /** Add an asset by pasting an externally-hosted URL. Skips the
+   *  bucket round-trip entirely — useful when a publisher already
+   *  hosts the creative on their own CDN, or when a creative was
+   *  promoted from another campaign and we want to reference the
+   *  exact same URL instead of duplicating bytes in S3. Content type
+   *  is inferred from the path extension; an HTMLVideoElement probes
+   *  the duration for videos so the rotation timing is right. */
+  const handleAddByUrl = useCallback(
+    async (rawUrl: string, zoneSlug: string) => {
+      const url = rawUrl.trim();
+      if (!url) return;
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          setError('URL must start with http:// or https://');
+          return;
+        }
+      } catch {
+        setError('That doesn\'t look like a valid URL.');
+        return;
+      }
+      const lower = url.toLowerCase().split('?')[0];
+      const isVideo =
+        lower.endsWith('.mp4') ||
+        lower.endsWith('.mov') ||
+        lower.endsWith('.m4v') ||
+        lower.endsWith('.webm') ||
+        lower.endsWith('.mkv');
+      const isImage =
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.webp');
+      if (!isVideo && !isImage) {
+        setError(
+          'URL must end with a recognised image or video extension ' +
+            '(.mp4 / .mov / .webm / .jpg / .png / .webp / …).',
+        );
+        return;
+      }
+      const contentType: CampaignAssetType = isVideo ? 'VIDEO' : 'IMAGE';
+      const detected = isVideo ? await probeVideoDurationFromUrl(url) : 8;
+      const sortBase = displayedAssets.filter(
+        (a) => a.zone_slug === zoneSlug,
+      ).length;
+      const payload: CreateCampaignAssetRequest = {
+        zone_slug: zoneSlug,
+        content_url: url,
+        content_type: contentType,
+        duration_seconds: detected,
+        sort_order: sortBase,
+        // No upload happened → we don't have a server-computed
+        // integrity hash or size. Leave empty; gb-media uses them
+        // opportunistically, not as gates.
+        sha256: '',
+        size_bytes: 0,
+      };
+      try {
+        if (campaign) {
+          await apiService.addCampaignAsset(campaign.id, payload);
+          const fresh = await apiService.getCampaign(campaign.id);
+          setCampaign(fresh);
+        } else {
+          setPendingAssets((prev) => [...prev, makePendingAsset(payload)]);
+        }
+      } catch (e: any) {
+        setError(
+          e?.response?.data?.error || e?.message || 'Add by URL failed',
+        );
+      }
+    },
+    [campaign, displayedAssets],
+  );
+
+  /** Same probe as the upload path, but loads the URL directly so we
+   *  don't need a File handle. Times out at 5s — most CDN-hosted
+   *  creatives have metadata at the head of the file and respond in
+   *  under a second; if it doesn't we fall back to 10s default. */
+  const probeVideoDurationFromUrl = (url: string): Promise<number> =>
+    new Promise((resolve) => {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      v.muted = true;
+      let settled = false;
+      const done = (sec: number) => {
+        if (settled) return;
+        settled = true;
+        resolve(sec);
+      };
+      v.onloadedmetadata = () => {
+        const d = v.duration;
+        done(Number.isFinite(d) && d > 0 ? Math.round(d) : 10);
+      };
+      v.onerror = () => done(10);
+      setTimeout(() => done(10), 5000);
+      v.src = url;
+    });
+
   const handleUpload = useCallback(
     async (file: File, zoneSlug: string) => {
       setUploadingZone(zoneSlug);
@@ -688,6 +791,7 @@ const CampaignEditor: React.FC = () => {
               assets={displayedAssets}
               uploadingZone={uploadingZone}
               onUpload={handleUpload}
+              onAddByUrl={handleAddByUrl}
               onRemove={handleRemoveAsset}
               onDurationChange={handleUpdateDuration}
             />
@@ -902,6 +1006,7 @@ interface AssetGridProps {
   assets: CampaignAsset[];
   uploadingZone: string | null;
   onUpload: (file: File, zoneSlug: string) => Promise<void>;
+  onAddByUrl: (url: string, zoneSlug: string) => Promise<void>;
   onRemove: (asset: CampaignAsset) => Promise<void>;
   // Persist a new duration_seconds for an existing asset. Editor wires
   // this to apiService.updateCampaignAsset; staged (pre-save) assets
@@ -916,9 +1021,28 @@ const AssetGrid: React.FC<AssetGridProps> = ({
   assets,
   uploadingZone,
   onUpload,
+  onAddByUrl,
   onRemove,
   onDurationChange,
 }) => {
+  // Inline URL-entry dialog state — `zoneSlug` doubles as the open
+  // flag (null = closed). We don't bother routing this through the
+  // parent because the URL entry is a per-zone, transient interaction
+  // that doesn't need to survive a parent re-render.
+  const [urlDialogZone, setUrlDialogZone] = useState<string | null>(null);
+  const [urlDraft, setUrlDraft] = useState('');
+  const [urlSubmitting, setUrlSubmitting] = useState(false);
+  const submitUrlDialog = async () => {
+    if (!urlDialogZone) return;
+    setUrlSubmitting(true);
+    try {
+      await onAddByUrl(urlDraft, urlDialogZone);
+      setUrlDialogZone(null);
+      setUrlDraft('');
+    } finally {
+      setUrlSubmitting(false);
+    }
+  };
   const grouped = useMemo(() => {
     const m: Record<string, CampaignAsset[]> = {};
     assets.forEach((a) => {
@@ -956,31 +1080,44 @@ const AssetGrid: React.FC<AssetGridProps> = ({
                   {z.accepts?.length ? ` · accepts ${z.accepts.join(' / ')}` : ''}
                 </Typography>
               </Box>
-              <Button
-                component="label"
-                size="small"
-                variant="outlined"
-                startIcon={
-                  uploadingZone === z.slug ? (
-                    <CircularProgress size={14} />
-                  ) : (
-                    <AddIcon />
-                  )
-                }
-                disabled={uploadingZone !== null}
-              >
-                {uploadingZone === z.slug ? 'Uploading…' : 'Add asset'}
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  hidden
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) onUpload(f, z.slug);
-                    e.target.value = '';
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setUrlDraft('');
+                    setUrlDialogZone(z.slug);
                   }}
-                />
-              </Button>
+                  disabled={uploadingZone !== null}
+                  sx={{ textTransform: 'none' }}
+                >
+                  From URL
+                </Button>
+                <Button
+                  component="label"
+                  size="small"
+                  variant="outlined"
+                  startIcon={
+                    uploadingZone === z.slug ? (
+                      <CircularProgress size={14} />
+                    ) : (
+                      <AddIcon />
+                    )
+                  }
+                  disabled={uploadingZone !== null}
+                >
+                  {uploadingZone === z.slug ? 'Uploading…' : 'Add asset'}
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) onUpload(f, z.slug);
+                      e.target.value = '';
+                    }}
+                  />
+                </Button>
+              </Stack>
             </Stack>
             {items.map((a) => (
               <Stack
@@ -1027,6 +1164,64 @@ const AssetGrid: React.FC<AssetGridProps> = ({
           </Paper>
         );
       })}
+
+      <Dialog
+        open={urlDialogZone !== null}
+        onClose={() => !urlSubmitting && setUrlDialogZone(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Add asset by URL
+          {urlDialogZone && (
+            <Typography
+              component="span"
+              variant="caption"
+              color="text.secondary"
+              sx={{ ml: 1, fontFamily: 'monospace' }}
+            >
+              · {urlDialogZone}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Paste the public URL of a video (.mp4 / .mov / .webm) or image
+            (.jpg / .png / .webp). The file must already be reachable from
+            the gb-media device — we do not download or re-upload it.
+          </Typography>
+          <TextField
+            label="Content URL"
+            value={urlDraft}
+            onChange={(e) => setUrlDraft(e.target.value)}
+            placeholder="https://cdn.example.com/ads/spring-promo.mp4"
+            autoFocus
+            fullWidth
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !urlSubmitting) {
+                e.preventDefault();
+                void submitUrlDialog();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => setUrlDialogZone(null)}
+            disabled={urlSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => void submitUrlDialog()}
+            disabled={urlSubmitting || urlDraft.trim().length === 0}
+            startIcon={urlSubmitting ? <CircularProgress size={16} /> : null}
+          >
+            {urlSubmitting ? 'Adding…' : 'Add asset'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 };
